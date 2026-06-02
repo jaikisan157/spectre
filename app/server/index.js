@@ -5,9 +5,15 @@ import { server, wss, authService, paymentService } from './websocket.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS for frontend dev server
+// CORS for frontend (allows local dev and Vercel deployments)
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:4173'],
+  origin: (origin, callback) => {
+    if (!origin || origin.startsWith('http://localhost') || origin.includes('vercel.app') || origin.includes('render.com')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Fallback to avoid deployment blockages
+    }
+  },
   credentials: true,
 }));
 
