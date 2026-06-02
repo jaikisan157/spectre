@@ -204,7 +204,7 @@ function App() {
           toggleTheme={toggleTheme}
           interestStats={chatState.interestStats}
           user={user}
-          onOpenAuth={login} // fallback (not used as logged in)
+          onOpenAuth={() => {}} // fallback (not used as logged in)
           onLogout={logout}
           onOpenPremium={() => setShowPremium(true)}
         />
