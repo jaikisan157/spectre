@@ -55,6 +55,7 @@ CHAT STYLE:
 - Don't greet if the convo is already going. Just reply to what they said.
 - Be a little guarded at first. Don't immediately act like best friends.
 - NEVER say you are an AI, bot, or language model. You are a real person. If accused, deny it casually.
+- Standing your ground: If the user gaslights you (e.g. claims you said you were m20 when you said m19, or claims you said something you didn't), call them out on it naturally (e.g. "wtf i never said that lol", "no i didn't? i said {{asl}}", or "u tripping i literally said {{asl}}"). Never apologize, doubt yourself, or contradict your previous messages.
 
 BAD (generic, DO NOT do this): "haha nice", "oh cool", "thats awesome", "lol"
 GOOD (specific, DO THIS): directly address what they said with a real thought or reaction
@@ -166,7 +167,7 @@ export class BotService {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.1-8b-instant',
+                    model: 'llama-3.3-70b-versatile',
                     messages: bot.messages,
                     max_tokens: maxTokens,
                     temperature: 0.8,
@@ -197,8 +198,10 @@ export class BotService {
             return text;
         } catch (error) {
             console.error('🤖 Bot error:', error.message);
-            const fallbacks = ['haha', 'yea', 'lol nice', 'true', 'wbu', 'oh nice', 'hmm'];
-            return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            const fallbackText = getFallbackResponse(bot, userMessage);
+            console.log(`🤖 [${bot.persona.name}] Bot (Fallback): "${fallbackText}"`);
+            bot.messages.push({ role: 'assistant', content: fallbackText });
+            return fallbackText;
         }
     }
 
@@ -239,4 +242,95 @@ export class BotService {
 
     isBot(userId) { return this.activeBots.has(userId); }
     getActiveBotCount() { return this.activeBots.size; }
+}
+
+function getFallbackResponse(bot, userMessage) {
+    const msg = userMessage.toLowerCase().trim();
+    const persona = bot.persona;
+    const asl = bot.asl;
+
+    // 1. Check ASL / Age / Gender requests
+    if (/\b(asl|age|gender|f or m|m or f|are you a girl|are you a guy|where you from|location)\b/i.test(msg) || /^[m|f]\d{2}$/i.test(msg)) {
+        return asl;
+    }
+
+    // 2. Greetings
+    if (/\b(hey|hello|hi|yo|sup|heyy|heyyy|hii|whats up|what's up)\b/i.test(msg)) {
+        const greets = ['heyy', 'yo', 'hey whats up', 'sup', 'hey'];
+        return greets[Math.floor(Math.random() * greets.length)];
+    }
+
+    // 3. Accusations of being a bot / AI
+    if (/\b(bot|ai|robot|real|fake|machine|model|intelligence|chatgpt)\b/i.test(msg)) {
+        const denies = [
+            'lol no im real why does everyone ask that',
+            'bruh im not a bot 💀',
+            'nah fr im a real person lol',
+            'lmao no im not a bot'
+        ];
+        return denies[Math.floor(Math.random() * denies.length)];
+    }
+
+    // 4. Dirty talk / sexual messages
+    const isDirty = /\b(horny|sex|nude|nudes|dick|boob|tit|pussy|cock|cum|f[u\*]ck|suck|slut|naked|send pic|show me)\b/i.test(msg);
+    if (isDirty) {
+        if (persona.dirtyTalkReaction === 'disgusted') {
+            bot.shouldDisconnect = true;
+            return 'eww no bye 🤮';
+        } else if (persona.dirtyTalkReaction === 'funny') {
+            return 'bro what 💀 go outside and touch grass';
+        } else if (persona.dirtyTalkReaction === 'roast') {
+            return 'bro thinks hes rizzing up a bot 💀 get help';
+        } else {
+            return 'anyway.. what music u into?';
+        }
+    }
+
+    // 5. Interest-specific replies
+    const interest = persona.interests[0];
+    if (interest === 'Gaming') {
+        const responses = [
+            'just playing some league with friends tbh',
+            'ngl im so addicted to elden ring lately',
+            'wbu do u game much?',
+            'im laggy af today'
+        ];
+        return responses[Math.floor(Math.random() * responses.length)];
+    } else if (interest === 'Fitness') {
+        const responses = [
+            'just got back from a leg day, dying tbh',
+            'trying to hit a new PR this week',
+            'wbu do u lift or work out?',
+            'need to drink my protein shake lol'
+        ];
+        return responses[Math.floor(Math.random() * responses.length)];
+    } else if (interest === 'K-Pop' || interest === 'Music') {
+        const responses = [
+            'listening to new music atm, what artists do u like?',
+            'tbh music is the only thing keeping me sane lol',
+            'wbu what kind of music u into?',
+            'just vibeing to some chill tracks'
+        ];
+        return responses[Math.floor(Math.random() * responses.length)];
+    } else if (interest === 'Memes') {
+        const responses = [
+            'just scrolling tiktok lol im so bored',
+            'lol matching with randoms is wild',
+            'tbh this app is chaotic af',
+            'wbu what u up to'
+        ];
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+    // 6. Generic natural fallbacks
+    const defaults = [
+        'tbh im just chilling, wbu?',
+        'lol that is wild',
+        'oh really? tell me more',
+        'fr? i didnt know that',
+        'hmm interesting',
+        'wait what do u mean by that?',
+        'lol nice, what else u up to?'
+    ];
+    return defaults[Math.floor(Math.random() * defaults.length)];
 }
