@@ -1,20 +1,37 @@
 import { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { Sun, Moon } from 'lucide-react';
-import type { InterestStat } from '@/types/chat';
+import type { InterestStat, AuthUser } from '@/types/chat';
 
 interface HeroSectionProps {
-  onStartChat: (interests: string[]) => void;
+  onStartChat: (interests: string[], gender?: string, preferredGender?: string) => void;
   onlineCount: number;
   isDark: boolean;
   toggleTheme: () => void;
   interestStats: InterestStat[];
+  user: AuthUser | null;
+  onOpenAuth: () => void;
+  onLogout: () => void;
+  onOpenPremium: () => void;
 }
 
-export function HeroSection({ onStartChat, onlineCount, isDark, toggleTheme, interestStats }: HeroSectionProps) {
+export function HeroSection({
+  onStartChat,
+  onlineCount,
+  isDark,
+  toggleTheme,
+  interestStats,
+  user,
+  onOpenAuth,
+  onLogout,
+  onOpenPremium
+}: HeroSectionProps) {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState('');
   const [showMore, setShowMore] = useState(false);
+  const [gender, setGender] = useState<'male' | 'female' | 'any'>('any');
+  const [preferredGender, setPreferredGender] = useState<'male' | 'female' | 'any'>('any');
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
   const subheadRef = useRef<HTMLParagraphElement>(null);
@@ -70,12 +87,12 @@ export function HeroSection({ onStartChat, onlineCount, isDark, toggleTheme, int
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
-        onStartChat(selectedInterests);
+        onStartChat(selectedInterests, gender, preferredGender);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onStartChat, selectedInterests]);
+  }, [onStartChat, selectedInterests, gender, preferredGender]);
 
   return (
     <div
@@ -84,19 +101,59 @@ export function HeroSection({ onStartChat, onlineCount, isDark, toggleTheme, int
       style={{ background: 'var(--dark-bg)' }}
     >
       {/* Fixed-height top nav bar */}
-      <header className="flex items-center justify-between px-5 h-14 shrink-0">
+      <header className="flex items-center justify-between px-5 h-14 shrink-0 border-b border-white/5">
         <span className="font-heading font-semibold text-base text-text-primary tracking-tight">
           ShadowChat
         </span>
-        <button
-          onClick={toggleTheme}
-          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 active:bg-white/15 transition-all border border-white/10"
-          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          {isDark
-            ? <Sun className="w-4 h-4 text-text-secondary" />
-            : <Moon className="w-4 h-4 text-text-secondary" />}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Premium button */}
+          {user && (
+            user.isPremium ? (
+              <span className="font-mono text-[10px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 px-2.5 py-1 rounded flex items-center gap-1 shadow-[0_0_8px_rgba(0,255,200,0.1)]">
+                💎 Premium
+              </span>
+            ) : (
+              <button
+                onClick={onOpenPremium}
+                className="font-mono text-[10px] text-neon-cyan hover:bg-neon-cyan/10 border border-neon-cyan/30 px-2.5 py-1 rounded transition-colors flex items-center gap-1"
+              >
+                💎 Get Premium
+              </button>
+            )
+          )}
+
+          <button
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 active:bg-white/15 transition-all border border-white/10"
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {isDark
+              ? <Sun className="w-4 h-4 text-text-secondary" />
+              : <Moon className="w-4 h-4 text-text-secondary" />}
+          </button>
+
+          {/* Auth state */}
+          {user ? (
+            <div className="flex items-center gap-2">
+              <span className={`font-mono text-xs ${user.isPremium ? 'text-neon-cyan font-bold' : 'text-text-primary'}`}>
+                {user.displayName}
+              </span>
+              <button
+                onClick={onLogout}
+                className="font-mono text-[10px] text-text-secondary hover:text-text-primary bg-white/5 px-2.5 py-1 rounded border border-white/10 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="font-mono text-[10px] bg-neon-cyan text-black px-3 py-1 rounded border border-neon-cyan font-bold transition-all hover:bg-neon-cyan/80 hover:shadow-[0_0_8px_rgba(0,255,200,0.3)]"
+            >
+              Sign In Anonymously
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Scrollable main content */}
@@ -126,7 +183,7 @@ export function HeroSection({ onStartChat, onlineCount, isDark, toggleTheme, int
             {/* CTA Button — full width on mobile */}
             <button
               ref={ctaRef}
-              onClick={() => onStartChat(selectedInterests)}
+              onClick={() => onStartChat(selectedInterests, gender, preferredGender)}
               className="btn-neon w-full md:w-auto bg-neon-cyan text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 neon-glow hover:shadow-neon-strong transition-all"
             >
               {selectedInterests.length > 0 ? `Start Chat (${selectedInterests.length})` : 'Start Chat'}
@@ -237,6 +294,83 @@ export function HeroSection({ onStartChat, onlineCount, isDark, toggleTheme, int
                 );
               })}
             </div>
+
+            {/* Gender Filters */}
+            <div className="mt-6 border-t border-white/5 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-mono text-[10px] text-text-secondary/60 uppercase tracking-wider">
+                  Gender Matchmaking Filters
+                </h3>
+                {!user?.isPremium && (
+                  <button
+                    onClick={onOpenPremium}
+                    className="text-neon-cyan hover:underline font-mono text-[9px] flex items-center gap-1 uppercase tracking-tight font-semibold"
+                  >
+                    🔒 Unlock with Premium
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {/* My Gender */}
+                <div>
+                  <label className="block font-mono text-[9px] text-text-secondary/40 mb-1.5 uppercase">I am:</label>
+                  <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 relative">
+                    {!user?.isPremium && (
+                      <div
+                        onClick={onOpenPremium}
+                        className="absolute inset-0 bg-black/55 backdrop-blur-[0.5px] rounded-lg cursor-pointer flex items-center justify-center font-mono text-[8px] text-neon-cyan font-bold tracking-tight hover:bg-black/35 transition-all"
+                      >
+                        PREMIUM ONLY
+                      </div>
+                    )}
+                    {(['male', 'female', 'any'] as const).map(g => (
+                      <button
+                        key={g}
+                        disabled={!user?.isPremium}
+                        onClick={() => setGender(g)}
+                        className={`flex-1 py-1 rounded-md font-mono text-[10px] capitalize transition-all ${
+                          gender === g
+                            ? 'bg-neon-cyan text-black font-bold shadow-[0_0_8px_rgba(0,255,200,0.25)]'
+                            : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Match with */}
+                <div>
+                  <label className="block font-mono text-[9px] text-text-secondary/40 mb-1.5 uppercase">Match with:</label>
+                  <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 relative">
+                    {!user?.isPremium && (
+                      <div
+                        onClick={onOpenPremium}
+                        className="absolute inset-0 bg-black/55 backdrop-blur-[0.5px] rounded-lg cursor-pointer flex items-center justify-center font-mono text-[8px] text-neon-cyan font-bold tracking-tight hover:bg-black/35 transition-all"
+                      >
+                        PREMIUM ONLY
+                      </div>
+                    )}
+                    {(['male', 'female', 'any'] as const).map(pg => (
+                      <button
+                        key={pg}
+                        disabled={!user?.isPremium}
+                        onClick={() => setPreferredGender(pg)}
+                        className={`flex-1 py-1 rounded-md font-mono text-[10px] capitalize transition-all ${
+                          preferredGender === pg
+                            ? 'bg-neon-cyan text-black font-bold shadow-[0_0_8px_rgba(0,255,200,0.25)]'
+                            : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        {pg}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
         </div>

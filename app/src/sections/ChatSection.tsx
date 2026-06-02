@@ -3,6 +3,7 @@ import { Send, Square, MessageCircle, Users, Smile, Sun, Moon, Flag } from 'luci
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { NetworkIndicator } from '@/components/NetworkIndicator';
 import { GameOverlay } from '@/components/GameOverlay';
+import { ReportModal } from '@/components/ReportModal';
 import type { Message, WebSocketMessage } from '@/types/chat';
 
 interface ChatSectionProps {
@@ -19,6 +20,7 @@ interface ChatSectionProps {
   onStopChat: () => void;
   onNewChat: () => void;
   onGoHome: () => void;
+  onReportUser: (reason: string, description: string) => void;
   isDark: boolean;
   toggleTheme: () => void;
   connected: boolean;
@@ -34,6 +36,7 @@ export function ChatSection({
   onStopChat,
   onNewChat,
   onGoHome,
+  onReportUser,
   isDark,
   toggleTheme,
   connected,
@@ -45,6 +48,7 @@ export function ChatSection({
   const [autoReconnect, setAutoReconnect] = useState(0);
   const [activeReactionId, setActiveReactionId] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -518,7 +522,7 @@ export function ChatSection({
               {/* Flag/Report button */}
               {chatState.status === 'matched' && (
                 <button
-                  onClick={() => alert('Report feature coming soon!')}
+                  onClick={() => setShowReportModal(true)}
                   className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-md text-text-secondary/50 hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
                   title="Report user"
                 >
@@ -587,6 +591,16 @@ export function ChatSection({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <ReportModal
+          onSubmit={(reason, description) => {
+            onReportUser(reason, description);
+          }}
+          onClose={() => setShowReportModal(false)}
+        />
       )}
     </div>
   );

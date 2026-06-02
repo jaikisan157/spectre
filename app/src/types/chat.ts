@@ -11,6 +11,18 @@ export interface InterestStat {
   count: number;
 }
 
+export type Gender = 'male' | 'female' | 'any';
+
+export interface AuthUser {
+  username: string;
+  displayName: string;
+  isPremium: boolean;
+  premiumExpiry: number | null;
+  isBanned: boolean;
+  banReason: string | null;
+  createdAt: number;
+}
+
 export interface ChatState {
   status: 'idle' | 'searching' | 'matched' | 'disconnected' | 'error';
   partnerId: string | null;
@@ -42,6 +54,9 @@ export type WebSocketMessage =
   | { type: 'game_decline'; game: string; data?: unknown }
   | { type: 'game_move'; game: string; data: unknown }
   | { type: 'game_leave'; game: string; data?: unknown }
+  | { type: 'report_submitted'; message: string }
+  | { type: 'report_error'; message: string }
+  | { type: 'banned'; message: string }
   | { type: 'error'; message: string };
 
 export type GameType = 'tictactoe' | 'rps' | 'truthdare' | 'wyr' | 'connect4';

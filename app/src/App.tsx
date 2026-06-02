@@ -4,6 +4,10 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { HeroSection } from '@/sections/HeroSection';
 import { ChatSection } from '@/sections/ChatSection';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useAuth } from '@/hooks/useAuth';
+import { AuthPage } from '@/sections/AuthPage';
+import { BanScreen } from '@/components/BanScreen';
+import { PremiumModal } from '@/components/PremiumModal';
 import './App.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -13,9 +17,24 @@ function App() {
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem('shadowchat_theme') !== 'light';
   });
+  const [showPremium, setShowPremium] = useState(false);
+
   const mainRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+
+  const {
+    isLoggedIn,
+    user,
+    token,
+    loading: authLoading,
+    register,
+    login,
+    logout,
+    refreshUser,
+    purchasePremium,
+    purchaseUnban,
+  } = useAuth();
 
   const {
     connected,
@@ -26,9 +45,10 @@ function App() {
     sendReaction,
     stopChat,
     newChat,
+    sendReport,
     sendGameMessage,
     setGameHandler
-  } = useWebSocket();
+  } = useWebSocket(token);
 
   // Apply theme to html element
   useEffect(() => {
@@ -43,17 +63,47 @@ function App() {
 
   const toggleTheme = useCallback(() => setIsDark(d => !d), []);
 
+  // Handle Stripe callback URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    const hash = window.location.hash;
+
+    if (sessionId) {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      fetch(`${API_URL}/api/payment/verify?session_id=${sessionId}`)
+        .then(res => res.json())
+        .then(data => {
+          window.history.replaceState(null, '', window.location.pathname);
+          if (data.success) {
+            refreshUser();
+            alert(`Payment success! ${data.type === 'premium' ? 'Premium activated!' : 'Account unbanned!'}`);
+          } else {
+            alert(`Payment verification failed: ${data.error}`);
+          }
+        })
+        .catch(() => {
+          window.history.replaceState(null, '', window.location.pathname);
+          alert('Could not verify payment with server.');
+        });
+    } else if (hash.includes('payment-cancelled')) {
+      window.history.replaceState(null, '', window.location.pathname);
+      alert('Payment cancelled.');
+    }
+  }, [refreshUser]);
+
   // Handle start chat from hero
-  const handleStartChat = useCallback((interests: string[] = []) => {
+  const handleStartChat = useCallback((interests: string[] = [], gender?: string, preferredGender?: string) => {
     setShowChat(true);
     window.history.pushState({ chat: true }, '', '#chat');
     setTimeout(() => {
-      findMatch(interests);
+      findMatch(interests, gender, preferredGender, user?.isPremium);
     }, 500);
-  }, [findMatch]);
+  }, [findMatch, user]);
 
   // Handle new chat
   const handleNewChat = useCallback(() => {
+    // When requesting a new chat within the chat layout, let's keep search parameters
     newChat();
   }, [newChat]);
 
@@ -102,6 +152,38 @@ function App() {
     return () => ctx.revert();
   }, [showChat]);
 
+  // Report user callback
+  const handleReportUser = useCallback((reason: string, description: string) => {
+    sendReport(reason, description);
+  }, [sendReport]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-mono text-neon-cyan" style={{ background: '#070707' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-neon-cyan/20 border-t-neon-cyan rounded-full loading-spinner" />
+          <span>Securing connection...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 1. Auth Gate
+  if (!isLoggedIn) {
+    return <AuthPage onRegister={register} onLogin={login} />;
+  }
+
+  // 2. Ban Screen Gate
+  if (user?.isBanned) {
+    return (
+      <BanScreen
+        banReason={user.banReason}
+        onUnban={purchaseUnban}
+        onLogout={logout}
+      />
+    );
+  }
+
   return (
     <div ref={mainRef} className="relative min-h-screen" style={{ background: 'var(--dark-bg)' }}>
       {/* Grain Overlay */}
@@ -121,6 +203,10 @@ function App() {
           isDark={isDark}
           toggleTheme={toggleTheme}
           interestStats={chatState.interestStats}
+          user={user}
+          onOpenAuth={login} // fallback (not used as logged in)
+          onLogout={logout}
+          onOpenPremium={() => setShowPremium(true)}
         />
       </div>
 
@@ -138,6 +224,7 @@ function App() {
             onStopChat={stopChat}
             onNewChat={handleNewChat}
             onGoHome={handleGoHome}
+            onReportUser={handleReportUser}
             isDark={isDark}
             toggleTheme={toggleTheme}
             connected={connected}
@@ -145,6 +232,14 @@ function App() {
             setGameHandler={setGameHandler}
           />
         </div>
+      )}
+
+      {/* Premium Upgrade Modal */}
+      {showPremium && (
+        <PremiumModal
+          onClose={() => setShowPremium(false)}
+          onSubscribe={purchasePremium}
+        />
       )}
 
       {/* Connection Status Toast */}
