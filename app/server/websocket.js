@@ -15,11 +15,14 @@ const authService = new AuthService();
 const paymentService = new PaymentService(process.env.STRIPE_SECRET_KEY, authService);
 
 let botService = null;
-if (process.env.GROQ_API_KEY) {
-  botService = new BotService(process.env.GROQ_API_KEY);
-  console.log('🤖 Bot service enabled');
+if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_KEY_HERE') {
+  botService = new BotService(process.env.GEMINI_API_KEY, 'gemini');
+  console.log('🤖 Bot service enabled (Gemini)');
+} else if (process.env.GROQ_API_KEY) {
+  botService = new BotService(process.env.GROQ_API_KEY, 'groq');
+  console.log('🤖 Bot service enabled (Groq)');
 } else {
-  console.log('⚠️ GROQ_API_KEY not set — bots disabled');
+  console.log('⚠️ Neither GEMINI_API_KEY nor GROQ_API_KEY set — bots disabled');
 }
 
 // Create HTTP server (Express will mount on this)

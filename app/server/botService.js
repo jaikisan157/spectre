@@ -70,12 +70,14 @@ const DIRTY_TALK_BEHAVIORS = {
 };
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 export class BotService {
-    constructor(apiKey) {
+    constructor(apiKey, provider = 'groq') {
         this.apiKey = apiKey;
+        this.provider = provider;
         this.activeBots = new Map();
-        console.log('🤖 Bot service initialized (Groq)');
+        console.log(`🤖 Bot service initialized (${provider})`);
     }
 
     getPersona(userInterests = []) {
@@ -160,31 +162,66 @@ export class BotService {
             const roll = Math.random();
             const maxTokens = roll < 0.25 ? 50 : (roll < 0.6 ? 80 : 150);
 
-            const res = await fetch(GROQ_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: bot.messages,
-                    max_tokens: maxTokens,
-                    temperature: 0.8,
-                    top_p: 0.9,
-                    frequency_penalty: 0.6,
-                    presence_penalty: 0.4,
-                }),
-            });
+            let text = '';
+            if (this.provider === 'gemini') {
+                const systemPrompt = bot.messages[0].content;
+                const contents = bot.messages.slice(1).map(msg => ({
+                    role: msg.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: msg.content }]
+                }));
 
-            if (!res.ok) {
-                const err = await res.text();
-                console.error(`🤖 Groq error (${res.status}):`, err);
-                throw new Error(err);
+                const res = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents,
+                        systemInstruction: {
+                            parts: [{ text: systemPrompt }]
+                        },
+                        generationConfig: {
+                            temperature: 0.8,
+                            maxOutputTokens: maxTokens,
+                        }
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.text();
+                    console.error(`🤖 Gemini error (${res.status}):`, err);
+                    throw new Error(err);
+                }
+
+                const data = await res.json();
+                text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+            } else {
+                const res = await fetch(GROQ_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: bot.messages,
+                        max_tokens: maxTokens,
+                        temperature: 0.8,
+                        top_p: 0.9,
+                        frequency_penalty: 0.6,
+                        presence_penalty: 0.4,
+                    }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.text();
+                    console.error(`🤖 Groq error (${res.status}):`, err);
+                    throw new Error(err);
+                }
+
+                const data = await res.json();
+                text = data.choices?.[0]?.message?.content?.trim() || '';
             }
-
-            const data = await res.json();
-            let text = data.choices?.[0]?.message?.content?.trim();
 
             // Clean up — remove quotes if the model wraps response in them
             if (text && text.startsWith('"') && text.endsWith('"')) {
