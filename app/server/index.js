@@ -26,6 +26,11 @@ app.use((req, res, next) => {
   }
 });
 
+// ── Root Endpoint ──
+app.get('/', (req, res) => {
+  res.send('ShadowChat Server is running.');
+});
+
 // ── Health Check ──
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', connections: wss.clients.size });
