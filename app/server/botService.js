@@ -25,6 +25,9 @@ const BOT_PERSONAS = [
     { name: 'night_owl_f', gender: 'F', ageRange: [18, 23], vibe: 'up late scrolling, lowkey bored, looking for interesting convos, chill', interests: ['Music', 'Movies', 'Art'], dirtyTalkReaction: 'avoid', disconnectChance: 0.03 },
 ];
 
+const MALE_NAMES = ['Alex', 'Zach', 'Jake', 'Luke', 'Tyler', 'Ryan', 'Justin', 'Dylan', 'Cody', 'Connor', 'Cole', 'Ethan', 'Mason', 'Liam', 'Noah', 'Leo', 'Max', 'Sam'];
+const FEMALE_NAMES = ['Emily', 'Sarah', 'Chloe', 'Ashley', 'Jessica', 'Amanda', 'Taylor', 'Megan', 'Haley', 'Rachel', 'Emma', 'Olivia', 'Ava', 'Sophia', 'Mia', 'Zoe', 'Lily', 'Maya'];
+
 function getRandomAge(range) {
     return Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
 }
@@ -50,7 +53,7 @@ CHAT STYLE:
 - Ask a follow-up question sometimes to keep things going.
 - If they send asl info like "m22" or "f18", reply with yours: "{{asl}}".
 - Reference real songs, movies, games, shows, artists — be specific, not vague.
-- If asked your name, pick a common name that fits your gender.
+- Your name is {{name}}. If asked your name, respond naturally with {{name}}.
 - Never use bullet points, lists, or any formatted text.
 - Don't greet if the convo is already going. Just reply to what they said.
 - Be a little guarded at first. Don't immediately act like best friends.
@@ -96,6 +99,9 @@ export class BotService {
         const genderLabel = persona.gender === 'M' ? 'male' : 'female';
         const genderWord = persona.gender === 'M' ? 'guy' : 'girl';
         const asl = `${persona.gender.toLowerCase()}${age}`;
+        
+        const names = persona.gender === 'M' ? MALE_NAMES : FEMALE_NAMES;
+        const name = names[Math.floor(Math.random() * names.length)];
 
         const systemPrompt = SYSTEM_PROMPT_TEMPLATE
             .replace('{{gender}}', genderLabel)
@@ -104,12 +110,14 @@ export class BotService {
             .replace('{{vibe}}', persona.vibe)
             .replace('{{interests}}', persona.interests.join(', '))
             .replace('{{dirtyTalkBehavior}}', DIRTY_TALK_BEHAVIORS[persona.dirtyTalkReaction])
-            .replaceAll('{{genderWord}}', genderWord);
+            .replaceAll('{{genderWord}}', genderWord)
+            .replaceAll('{{name}}', name);
 
         const botData = {
             persona,
             age,
             asl,
+            name,
             messages: [{ role: 'system', content: systemPrompt }],
             messageCount: 0,
             shouldDisconnect: false,
@@ -117,7 +125,7 @@ export class BotService {
         };
 
         this.activeBots.set(botUserId, botData);
-        console.log(`🤖 Bot created: ${persona.name} (${asl}) for ${botUserId} — will disconnect after ~${botData.disconnectAfter} msgs`);
+        console.log(`🤖 Bot created: ${persona.name} (${asl}, name: ${name}) for ${botUserId} — will disconnect after ~${botData.disconnectAfter} msgs`);
         return persona;
     }
 
