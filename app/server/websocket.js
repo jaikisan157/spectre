@@ -280,8 +280,10 @@ function disconnectUser(userId) {
   // Clean up any pending bot debounce timers
   const pending = botDebounce.get(userId);
   if (pending) {
-    if (pending.timer) clearTimeout(pending.timer);
+    pending.gen++; // invalidate any in-flight API responses
+    if (pending.debounceTimer) clearTimeout(pending.debounceTimer);
     if (pending.typingTimer) clearTimeout(pending.typingTimer);
+    if (pending.replyTimer) clearTimeout(pending.replyTimer);
     botDebounce.delete(userId);
   }
 }
@@ -459,37 +461,62 @@ wss.on('connection', (ws, req) => {
 
             ws.send(JSON.stringify({ type: 'message_sent', text, messageId: msgId, timestamp: ts }));
 
-            // Bot response handling — debounced so rapid messages get combined
+            // Bot response handling — full human-like debounce with generation cancellation
+            // If the user sends another message at ANY point (waiting, API in-flight, bot "typing"),
+            // the bot scraps its pending reply, reads the new message, and restarts.
             if (botService && botService.isBot(partnerId)) {
-              const pending = botDebounce.get(userId) || { texts: [], timer: null, typingTimer: null };
+              const pending = botDebounce.get(userId) || {
+                texts: [],
+                gen: 0,               // generation counter — increments on every reset
+                debounceTimer: null,   // waiting for user to stop sending
+                typingTimer: null,     // "read" delay before showing typing indicator
+                replyTimer: null,      // delay before bot sends its message
+              };
+
+              // ── Reset everything: scrap any in-progress reply ──
+              pending.gen++;
+              if (pending.debounceTimer) clearTimeout(pending.debounceTimer);
+              if (pending.typingTimer) clearTimeout(pending.typingTimer);
+              if (pending.replyTimer) clearTimeout(pending.replyTimer);
+
+              // Stop the typing indicator if it was showing (bot is "reading" the new msg)
+              ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
 
               // Accumulate message
               pending.texts.push(text);
-
-              // Clear previous debounce timer
-              if (pending.timer) clearTimeout(pending.timer);
-              if (pending.typingTimer) clearTimeout(pending.typingTimer);
 
               // Show typing indicator after a short "read" delay
               pending.typingTimer = setTimeout(() => {
                 if (!activePairs.has(userId) || ws.readyState !== 1) return;
                 ws.send(JSON.stringify({ type: 'typing', isTyping: true }));
-              }, 300 + Math.random() * 500);
+              }, 400 + Math.random() * 600);
 
-              // Wait 2.5s of silence before responding
-              pending.timer = setTimeout(() => {
-                botDebounce.delete(userId);
+              // Capture current generation for this cycle
+              const currentGen = pending.gen;
+
+              // Wait 2.5s of user silence before calling the API
+              pending.debounceTimer = setTimeout(() => {
+                if (pending.gen !== currentGen) return; // stale — user sent another msg
                 if (!activePairs.has(userId) || ws.readyState !== 1) return;
 
                 // Combine all accumulated messages into one
                 const combinedText = pending.texts.join('\n');
 
+                // Show typing while API call is in progress
+                ws.send(JSON.stringify({ type: 'typing', isTyping: true }));
+
                 botService.getResponse(partnerId, combinedText).then(botReply => {
+                  // If generation changed, user sent a new message while API was running — discard this reply
+                  if (pending.gen !== currentGen) return;
                   if (!activePairs.has(userId)) return;
+
+                  // Clean up — this cycle is done
+                  botDebounce.delete(userId);
 
                   if (botService.shouldDisconnect(partnerId)) {
                     const dcDelay = botReply ? botService.getTypingDelay(botReply) : 1000;
-                    setTimeout(() => {
+                    pending.replyTimer = setTimeout(() => {
+                      if (pending.gen !== currentGen) return;
                       if (!activePairs.has(userId) || ws.readyState !== 1) return;
                       ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
                       if (botReply) {
@@ -512,7 +539,8 @@ wss.on('connection', (ws, req) => {
 
                   if (!botReply) return;
                   const delay = botService.getTypingDelay(botReply);
-                  setTimeout(() => {
+                  pending.replyTimer = setTimeout(() => {
+                    if (pending.gen !== currentGen) return; // user interrupted during typing delay
                     if (!activePairs.has(userId) || ws.readyState !== 1) return;
                     ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
                     ws.send(JSON.stringify({
