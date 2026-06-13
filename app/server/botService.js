@@ -165,7 +165,7 @@ export class BotService {
         };
 
         this.activeBots.set(botUserId, botData);
-        console.log(`🤖 Bot created: ${persona.name} (${asl}, name: ${name}) for ${botUserId} — will disconnect after ~${botData.disconnectAfter} msgs`);
+        console.log(`🤖 Bot created: ${persona.name} (${asl}, name: ${name}) for ${botUserId} — AI Fallback: [${this.activeProviders.join(' -> ')}]`);
         return persona;
     }
 

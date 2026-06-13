@@ -955,7 +955,7 @@ setInterval(() => {
         }, 1000 + Math.random() * 1500);
       }, 1500 + Math.random() * 2000);
 
-      console.log(`🤖 Bot matched: ${userId} <-> ${botId} (${persona.name})`);
+      console.log(`🤖 Bot matched: ${userId} <-> ${botId} (${persona.name}) — Active AI Fallback: [${botService.activeProviders.join(' -> ')}]`);
       break;
     }
   }
