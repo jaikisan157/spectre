@@ -15,12 +15,12 @@ const authService = new AuthService();
 const paymentService = new PaymentService(process.env.STRIPE_SECRET_KEY, authService);
 
 let botService = null;
-if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_KEY_HERE') {
-  botService = new BotService(process.env.GEMINI_API_KEY, 'gemini');
-  console.log('🤖 Bot service enabled (Gemini)');
-} else if (process.env.GROQ_API_KEY) {
-  botService = new BotService(process.env.GROQ_API_KEY, 'groq');
-  console.log('🤖 Bot service enabled (Groq)');
+const geminiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_KEY_HERE' ? process.env.GEMINI_API_KEY : null;
+const groqKey = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'YOUR_GROQ_KEY_HERE' ? process.env.GROQ_API_KEY : null;
+
+if (geminiKey || groqKey) {
+  botService = new BotService({ gemini: geminiKey, groq: groqKey });
+  console.log(`🤖 Bot service enabled (Primary: ${botService.provider === 'gemini' ? 'Gemini' : 'Groq'}, Fallback switching active)`);
 } else {
   console.log('⚠️ Neither GEMINI_API_KEY nor GROQ_API_KEY set — bots disabled');
 }

@@ -78,11 +78,25 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 export class BotService {
-    constructor(apiKey, provider = 'groq') {
-        this.apiKey = apiKey;
-        this.provider = provider;
+    constructor(apiKeyOrKeys, providerOrUndefined) {
+        if (typeof apiKeyOrKeys === 'object' && apiKeyOrKeys !== null) {
+            this.geminiKey = apiKeyOrKeys.gemini || null;
+            this.groqKey = apiKeyOrKeys.groq || null;
+            this.provider = this.geminiKey ? 'gemini' : (this.groqKey ? 'groq' : 'none');
+        } else {
+            const provider = providerOrUndefined || 'groq';
+            if (provider === 'gemini') {
+                this.geminiKey = apiKeyOrKeys;
+                this.groqKey = process.env.GROQ_API_KEY || null;
+            } else {
+                this.groqKey = apiKeyOrKeys;
+                this.geminiKey = process.env.GEMINI_API_KEY || null;
+            }
+            this.provider = provider;
+        }
+        this.apiKey = this.geminiKey || this.groqKey;
         this.activeBots = new Map();
-        console.log(`🤖 Bot service initialized (${provider})`);
+        console.log(`🤖 Bot service initialized (Primary: ${this.provider}, Gemini: ${!!this.geminiKey}, Groq: ${!!this.groqKey})`);
     }
 
     getPersona(userInterests = []) {
@@ -132,6 +146,68 @@ export class BotService {
         return persona;
     }
 
+    async callGemini(messages, maxTokens) {
+        if (!this.geminiKey) throw new Error('Gemini API key not configured');
+        const systemPrompt = messages[0].content;
+        const contents = messages.slice(1).map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: msg.content }]
+        }));
+
+        const res = await fetch(`${GEMINI_API_URL}?key=${this.geminiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents,
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    temperature: 1.0,
+                    maxOutputTokens: maxTokens,
+                }
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`Gemini error (${res.status}): ${err}`);
+        }
+
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    }
+
+    async callGroq(messages, maxTokens) {
+        if (!this.groqKey) throw new Error('Groq API key not configured');
+        const res = await fetch(GROQ_API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.groqKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: messages,
+                max_tokens: maxTokens,
+                temperature: 0.8,
+                top_p: 0.9,
+                frequency_penalty: 0.6,
+                presence_penalty: 0.4,
+            }),
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`Groq error (${res.status}): ${err}`);
+        }
+
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content?.trim() || '';
+    }
+
     async getResponse(botUserId, userMessage) {
         const bot = this.activeBots.get(botUserId);
         if (!bot) return null;
@@ -174,64 +250,36 @@ export class BotService {
             const maxTokens = roll < 0.25 ? 50 : (roll < 0.6 ? 80 : 150);
 
             let text = '';
+            let usedProvider = this.provider;
+
             if (this.provider === 'gemini') {
-                const systemPrompt = bot.messages[0].content;
-                const contents = bot.messages.slice(1).map(msg => ({
-                    role: msg.role === 'assistant' ? 'model' : 'user',
-                    parts: [{ text: msg.content }]
-                }));
-
-                const res = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        contents,
-                        systemInstruction: {
-                            parts: [{ text: systemPrompt }]
-                        },
-                        generationConfig: {
-                            temperature: 1.0,
-                            maxOutputTokens: maxTokens,
-                        }
-                    })
-                });
-
-                if (!res.ok) {
-                    const err = await res.text();
-                    console.error(`🤖 Gemini error (${res.status}):`, err);
-                    throw new Error(err);
+                try {
+                    text = await this.callGemini(bot.messages, maxTokens);
+                } catch (geminiError) {
+                    console.warn(`⚠️ Gemini API failed: ${geminiError.message}`);
+                    if (this.groqKey) {
+                        console.log(`🔄 Mid-convo fallback: switching to Groq for bot ${bot.name}...`);
+                        usedProvider = 'groq';
+                        text = await this.callGroq(bot.messages, maxTokens);
+                    } else {
+                        throw geminiError;
+                    }
                 }
-
-                const data = await res.json();
-                text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+            } else if (this.provider === 'groq') {
+                try {
+                    text = await this.callGroq(bot.messages, maxTokens);
+                } catch (groqError) {
+                    console.warn(`⚠️ Groq API failed: ${groqError.message}`);
+                    if (this.geminiKey) {
+                        console.log(`🔄 Mid-convo fallback: switching to Gemini for bot ${bot.name}...`);
+                        usedProvider = 'gemini';
+                        text = await this.callGemini(bot.messages, maxTokens);
+                    } else {
+                        throw groqError;
+                    }
+                }
             } else {
-                const res = await fetch(GROQ_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.apiKey}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        model: 'llama-3.3-70b-versatile',
-                        messages: bot.messages,
-                        max_tokens: maxTokens,
-                        temperature: 0.8,
-                        top_p: 0.9,
-                        frequency_penalty: 0.6,
-                        presence_penalty: 0.4,
-                    }),
-                });
-
-                if (!res.ok) {
-                    const err = await res.text();
-                    console.error(`🤖 Groq error (${res.status}):`, err);
-                    throw new Error(err);
-                }
-
-                const data = await res.json();
-                text = data.choices?.[0]?.message?.content?.trim() || '';
+                throw new Error('No active API provider configured');
             }
 
             // Clean up — remove quotes if the model wraps response in them
@@ -239,15 +287,15 @@ export class BotService {
                 text = text.slice(1, -1);
             }
 
-            console.log(`🤖 [${bot.persona.name}] Bot: "${text}"`);
+            console.log(`🤖 [${bot.persona.name}] Bot (${usedProvider}): "${text}"`);
 
             if (!text) return null;
             bot.messages.push({ role: 'assistant', content: text });
             return text;
         } catch (error) {
-            console.error('🤖 Bot error:', error.message);
+            console.error('🤖 Both primary and fallback providers failed:', error.message);
             const fallbackText = getFallbackResponse(bot, userMessage);
-            console.log(`🤖 [${bot.persona.name}] Bot (Fallback): "${fallbackText}"`);
+            console.log(`🤖 [${bot.persona.name}] Bot (Local Fallback): "${fallbackText}"`);
             bot.messages.push({ role: 'assistant', content: fallbackText });
             return fallbackText;
         }
