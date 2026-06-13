@@ -154,10 +154,11 @@ export class BotService {
             parts: [{ text: msg.content }]
         }));
 
-        const res = await fetch(`${GEMINI_API_URL}?key=${this.geminiKey}`, {
+        const res = await fetch(GEMINI_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'x-goog-api-key': this.geminiKey,
             },
             body: JSON.stringify({
                 contents,

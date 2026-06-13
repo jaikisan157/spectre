@@ -152,7 +152,9 @@ export function useAuth() {
 
       if (data.success && data.url) {
         if (data.demo) {
-          const verifyRes = await fetch(`${API_URL}/api/payment/verify?session_id=${data.sessionId}`);
+          const verifyRes = await fetch(`${API_URL}/api/payment/verify?session_id=${data.sessionId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           const verifyData = await verifyRes.json();
           if (verifyData.success) {
             await refreshUser();

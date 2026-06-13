@@ -8,7 +8,7 @@ const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
 function getBrowserId(): string {
   let id = localStorage.getItem('spectre_browser_id');
   if (!id) {
-    id = 'b-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10);
+    id = crypto.randomUUID();
     localStorage.setItem('spectre_browser_id', id);
   }
   return id;

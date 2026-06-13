@@ -68,7 +68,10 @@ function App() {
 
     if (sessionId) {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      fetch(`${API_URL}/api/payment/verify?session_id=${sessionId}`)
+      const authToken = localStorage.getItem('spectre_auth_token');
+      fetch(`${API_URL}/api/payment/verify?session_id=${sessionId}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      })
         .then(res => res.json())
         .then(data => {
           window.history.replaceState(null, '', window.location.pathname);

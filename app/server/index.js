@@ -1,28 +1,49 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { server, wss, authService, paymentService } from './websocket.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS for frontend (allows local dev and Vercel deployments)
+// CORS for frontend (only allow known origins)
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || origin.startsWith('http://localhost') || origin.includes('vercel.app') || origin.includes('render.com')) {
+    // Allow requests with no origin (server-to-server, health checks)
+    if (!origin) return callback(null, true);
+    const allowed = [
+      'https://spectre-1.vercel.app',
+      /^http:\/\/localhost(:\d+)?$/,
+    ];
+    const isAllowed = allowed.some(p => p instanceof RegExp ? p.test(origin) : p === origin);
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(null, true); // Fallback to avoid deployment blockages
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
 }));
 
-// JSON body parsing (except for webhook which needs raw body)
+// Security headers
+app.use(helmet());
+
+// Rate limit auth endpoints (15 attempts per 15 minutes)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many attempts. Please try again later.' },
+});
+
+// JSON body parsing with size limit (except for webhook which needs raw body)
 app.use((req, res, next) => {
   if (req.path === '/api/webhook') {
     next(); // Skip JSON parsing for Stripe webhook
   } else {
-    express.json()(req, res, next);
+    express.json({ limit: '16kb' })(req, res, next);
   }
 });
 
@@ -38,7 +59,7 @@ app.get('/health', (req, res) => {
 
 // ── Auth Endpoints ──
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', authLimiter, (req, res) => {
   const { username, password } = req.body;
   const result = authService.register(username, password);
   
@@ -49,7 +70,7 @@ app.post('/api/register', (req, res) => {
   }
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', authLimiter, (req, res) => {
   const { username, password } = req.body;
   const result = authService.login(username, password);
   
@@ -95,6 +116,11 @@ app.post('/api/checkout/unban', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Account is not banned' });
   }
 
+  // Block if Stripe is not configured (no demo mode in production)
+  if (!paymentService.isConfigured) {
+    return res.status(503).json({ success: false, error: 'Payment system not available' });
+  }
+
   const origin = req.headers.origin || 'http://localhost:5173';
   const result = await paymentService.createUnbanCheckoutSession(
     user.username,
@@ -109,6 +135,13 @@ app.get('/api/payment/verify', async (req, res) => {
   const { session_id } = req.query;
   if (!session_id) {
     return res.status(400).json({ success: false, error: 'Missing session_id' });
+  }
+
+  // Require auth to verify a payment
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const user = authService.verifyToken(token);
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Not authenticated' });
   }
 
   const result = await paymentService.verifyAndProcess(session_id);

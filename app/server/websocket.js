@@ -28,15 +28,36 @@ if (geminiKey || groqKey) {
 // Create HTTP server (Express will mount on this)
 const server = createServer();
 
-// Create WebSocket server
-const wss = new WebSocketServer({ server });
+// Allowed origins for WebSocket connections
+const ALLOWED_ORIGINS = [
+  'https://spectre-1.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+
+// Create WebSocket server with security limits
+const wss = new WebSocketServer({
+  server,
+  maxPayload: 16 * 1024, // 16 KB max message size
+  verifyClient: ({ origin }) => {
+    // Allow connections with no origin (non-browser clients like health checks)
+    if (!origin) return true;
+    return ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
+  },
+});
 
 // ── State Maps ──
-const waitingUsers = new Map();   // userId -> { ws, interests, gender, preferredGender, isPremium, timestamp }
+const waitingUsers = new Map();   // userId -> { ws, interests, timestamp }
 const activePairs = new Map();    // userId -> partnerId
 const userSockets = new Map();    // userId -> ws
 const lastActivity = new Map();   // userId -> timestamp
 const browserSockets = new Map(); // browserId -> userId
+
+// ── Security Constants ──
+const MAX_CONNECTIONS = 10000;
+const MAX_MSG_PER_SEC = 8;        // messages per second per connection
+const MAX_MSG_LENGTH = 2000;      // max characters per chat message
+const MAX_MAP_SIZE = 50000;       // safety cap for any Map
 const userAuthMap = new Map();    // userId -> username (links WS user to auth account)
 
 const IDLE_TIMEOUT = 3 * 60 * 1000; // 3 minutes
@@ -295,7 +316,16 @@ function broadcastOnlineCount() {
 
 // ── WebSocket Connection Handler ──
 wss.on('connection', (ws, req) => {
+  // Enforce max connections
+  if (wss.clients.size > MAX_CONNECTIONS) {
+    ws.close(1013, 'Server full');
+    return;
+  }
+
   const userId = generateUserId();
+
+  // Per-connection rate limiter
+  const msgTimestamps = [];
 
   const url = new URL(req.url, 'http://localhost');
   const browserId = url.searchParams.get('browserId');
@@ -355,8 +385,17 @@ wss.on('connection', (ws, req) => {
   // ── Message Handler ──
   ws.on('message', (data) => {
     try {
+      // Rate limit: max MAX_MSG_PER_SEC messages per second
+      const now = Date.now();
+      msgTimestamps.push(now);
+      while (msgTimestamps.length && msgTimestamps[0] < now - 1000) msgTimestamps.shift();
+      if (msgTimestamps.length > MAX_MSG_PER_SEC) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Slow down! Too many messages.' }));
+        return;
+      }
+
       const message = JSON.parse(data.toString());
-      lastActivity.set(userId, Date.now());
+      lastActivity.set(userId, now);
 
       switch (message.type) {
         case 'get_interests':
@@ -395,16 +434,21 @@ wss.on('connection', (ws, req) => {
         case 'message': {
           const partnerId = activePairs.get(userId);
           if (partnerId) {
+            // Validate and sanitize message text
+            const rawText = typeof message.text === 'string' ? message.text.trim() : '';
+            if (!rawText) break;
+            const text = rawText.substring(0, MAX_MSG_LENGTH);
+
             const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
             const ts = Date.now();
             const partnerWs = userSockets.get(partnerId);
             if (partnerWs && partnerWs.readyState === 1) {
               partnerWs.send(JSON.stringify({
-                type: 'message', from: 'stranger', text: message.text, messageId: msgId, timestamp: ts
+                type: 'message', from: 'stranger', text, messageId: msgId, timestamp: ts
               }));
             }
 
-            ws.send(JSON.stringify({ type: 'message_sent', text: message.text, messageId: msgId, timestamp: ts }));
+            ws.send(JSON.stringify({ type: 'message_sent', text, messageId: msgId, timestamp: ts }));
 
             // Bot response handling
             if (botService && botService.isBot(partnerId)) {
@@ -414,7 +458,7 @@ wss.on('connection', (ws, req) => {
                 ws.send(JSON.stringify({ type: 'typing', isTyping: true }));
               }, readDelay);
 
-              botService.getResponse(partnerId, message.text).then(botReply => {
+              botService.getResponse(partnerId, text).then(botReply => {
                 if (!activePairs.has(userId)) return;
 
                 if (botService.shouldDisconnect(partnerId)) {
@@ -462,7 +506,7 @@ wss.on('connection', (ws, req) => {
           if (typingPartnerId) {
             const partnerWs = userSockets.get(typingPartnerId);
             if (partnerWs && partnerWs.readyState === 1) {
-              partnerWs.send(JSON.stringify({ type: 'typing', isTyping: message.isTyping }));
+              partnerWs.send(JSON.stringify({ type: 'typing', isTyping: !!message.isTyping }));
             }
           }
           break;
@@ -471,9 +515,13 @@ wss.on('connection', (ws, req) => {
         case 'reaction': {
           const reactionPartnerId = activePairs.get(userId);
           if (reactionPartnerId) {
+            // Validate emoji (max 8 chars to allow compound emoji)
+            const emoji = typeof message.emoji === 'string' ? message.emoji.substring(0, 8) : '';
+            const messageId = typeof message.messageId === 'string' ? message.messageId.substring(0, 50) : '';
+            if (!emoji || !messageId) break;
             const rWs = userSockets.get(reactionPartnerId);
             if (rWs && rWs.readyState === 1) {
-              rWs.send(JSON.stringify({ type: 'reaction_received', messageId: message.messageId, emoji: message.emoji }));
+              rWs.send(JSON.stringify({ type: 'reaction_received', messageId, emoji }));
             }
           }
           break;
@@ -520,7 +568,7 @@ wss.on('connection', (ws, req) => {
           break;
         }
 
-        // ── Game Messages ──
+        // ── Game Messages ── (whitelist fields)
         case 'game_invite':
         case 'game_accept':
         case 'game_decline':
@@ -528,15 +576,16 @@ wss.on('connection', (ws, req) => {
         case 'game_leave': {
           const gamePartnerId = activePairs.get(userId);
           if (gamePartnerId) {
+            const gameName = typeof message.game === 'string' ? message.game.substring(0, 30) : '';
             const gWs = userSockets.get(gamePartnerId);
             if (gWs && gWs.readyState === 1) {
-              gWs.send(JSON.stringify({ type: message.type, game: message.game, data: message.data }));
+              gWs.send(JSON.stringify({ type: message.type, game: gameName, data: message.data }));
             }
           }
           break;
         }
 
-        // ── Video signaling (future) ──
+        // ── Video signaling (future) ── (whitelist fields only)
         case 'video_offer':
         case 'video_answer':
         case 'video_ice_candidate':
@@ -545,7 +594,11 @@ wss.on('connection', (ws, req) => {
           if (videoPartnerId) {
             const vWs = userSockets.get(videoPartnerId);
             if (vWs && vWs.readyState === 1) {
-              vWs.send(JSON.stringify(message));
+              // Only forward safe, expected fields
+              const safeMsg = { type: message.type };
+              if (message.sdp) safeMsg.sdp = message.sdp;
+              if (message.candidate) safeMsg.candidate = message.candidate;
+              vWs.send(JSON.stringify(safeMsg));
             }
           }
           break;
@@ -625,6 +678,32 @@ setInterval(() => {
     }
   }
 }, 30000);
+
+// Periodic safety cleanup — prevent unbounded Map growth (every 5 min)
+setInterval(() => {
+  // Clean stale entries from report rate limiter (older than 10 min)
+  const now = Date.now();
+  for (const [reporterId, timestamps] of reportRateLimit) {
+    const recent = timestamps.filter(t => now - t < 10 * 60 * 1000);
+    if (recent.length === 0) reportRateLimit.delete(reporterId);
+    else reportRateLimit.set(reporterId, recent);
+  }
+
+  // Clean stale report records (older than 2 hours)
+  for (const [targetId, reports] of reportStore) {
+    const recent = reports.filter(r => now - r.timestamp < 2 * 60 * 60 * 1000);
+    if (recent.length === 0) reportStore.delete(targetId);
+    else reportStore.set(targetId, recent);
+  }
+
+  // Safety: if any state Map exceeds MAX_MAP_SIZE, log a warning
+  const maps = { waitingUsers, activePairs, userSockets, lastActivity, browserSockets, userAuthMap, reportStore, reportRateLimit };
+  for (const [name, map] of Object.entries(maps)) {
+    if (map.size > MAX_MAP_SIZE) {
+      console.warn(`⚠️ Map '${name}' exceeds ${MAX_MAP_SIZE} entries (${map.size}). Possible memory leak.`);
+    }
+  }
+}, 5 * 60 * 1000);
 
 // Periodic matchmaking sweep
 setInterval(() => {
