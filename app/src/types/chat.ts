@@ -59,7 +59,7 @@ export type WebSocketMessage =
   | { type: 'banned'; message: string }
   | { type: 'error'; message: string };
 
-export type GameType = 'tictactoe' | 'rps' | 'truthdare' | 'wyr' | 'connect4';
+export type GameType = 'tictactoe' | 'rps' | 'truthdare' | 'wyr' | 'connect4' | 'snake';
 
 export interface UseWebSocketReturn {
   connected: boolean;

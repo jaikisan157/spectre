@@ -537,6 +537,7 @@ export function ChatSection({
                 setGameHandler={setGameHandler}
                 isMatched={chatState.status === 'matched'}
                 onPartnerDisconnect={chatState.status === 'disconnected'}
+                partnerId={chatState.partnerId}
               />
               <input
                 ref={inputRef}

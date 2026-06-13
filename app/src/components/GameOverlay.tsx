@@ -5,6 +5,7 @@ import { RockPaperScissors, getRPSResult } from './RockPaperScissors';
 import { TruthDare } from './TruthDare';
 import { WouldYouRather, getRandomWYR } from './WouldYouRather';
 import { ConnectFour, checkConnect4Winner, createEmptyBoard, dropPiece } from './ConnectFour';
+import { GridSnake } from './GridSnake';
 import type { WebSocketMessage, GameType } from '@/types/chat';
 
 type TTTCell = 'X' | 'O' | null;
@@ -15,6 +16,7 @@ interface GameOverlayProps {
     setGameHandler: (handler: ((msg: WebSocketMessage) => void) | null) => void;
     isMatched: boolean;
     onPartnerDisconnect: boolean;
+    partnerId: string | null;
 }
 
 type GameState =
@@ -30,9 +32,10 @@ const GAME_NAMES: Record<GameType, string> = {
     truthdare: 'Truth or Dare',
     wyr: 'Would You Rather',
     connect4: 'Connect Four',
+    snake: 'Grid Snake',
 };
 
-export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPartnerDisconnect }: GameOverlayProps) {
+export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPartnerDisconnect, partnerId }: GameOverlayProps) {
     const [gameState, setGameState] = useState<GameState>({ phase: 'idle' });
 
     // TTT state
@@ -64,6 +67,10 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
     const [c4Turn, setC4Turn] = useState<'R' | 'Y'>('R');
     const [c4Winner, setC4Winner] = useState<'R' | 'Y' | 'draw' | null>(null);
 
+    // Snake state
+    const [snakeMyRole, setSnakeMyRole] = useState<'A' | 'B'>('A');
+    const [snakeOpponentDir, setSnakeOpponentDir] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
+
     // Reset on disconnect
     useEffect(() => {
         if (onPartnerDisconnect || !isMatched) {
@@ -77,7 +84,8 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
     const resetTD = () => { setTdPrompts([]); };
     const resetWYR = () => { setWyrQuestion(null); setWyrMyAnswer(null); setWyrTheirAnswer(null); setWyrRound(1); };
     const resetC4 = () => { setC4Board(createEmptyBoard()); setC4MyColor('R'); setC4Turn('R'); setC4Winner(null); };
-    const resetAll = () => { resetTTT(); resetRPS(); resetTD(); resetWYR(); resetC4(); };
+    const resetSnake = () => { setSnakeMyRole('A'); setSnakeOpponentDir(null); };
+    const resetAll = () => { resetTTT(); resetRPS(); resetTD(); resetWYR(); resetC4(); resetSnake(); };
 
     // Handle incoming game messages
     const handleGameMessage = useCallback((msg: WebSocketMessage) => {
@@ -98,6 +106,7 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
                     else if (game === 'wyr') { resetWYR(); const q = getRandomWYR(); setWyrQuestion(q); sendGameMessage('game_move', 'wyr', { question: q }); }
                     else if (game === 'rps') { resetRPS(); }
                     else if (game === 'truthdare') { resetTD(); }
+                    else if (game === 'snake') { resetSnake(); setSnakeMyRole('A'); }
                     setGameState({ phase: 'playing', game });
                 }
                 break;
@@ -130,6 +139,8 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
                             return prev;
                         });
                         setC4Turn(prev => prev === 'R' ? 'Y' : 'R');
+                    } else if (m.game === 'snake') {
+                        setSnakeOpponentDir(data.dir as 'up' | 'down' | 'left' | 'right');
                     }
                 }
                 break;
@@ -177,6 +188,7 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
         else if (game === 'wyr') { resetWYR(); }
         else if (game === 'rps') { resetRPS(); }
         else if (game === 'truthdare') { resetTD(); }
+        else if (game === 'snake') { resetSnake(); setSnakeMyRole('B'); }
         setGameState({ phase: 'playing', game });
     };
 
@@ -256,6 +268,7 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
                             { id: 'tictactoe', icon: '❌⭕', name: 'Tic-Tac-Toe', desc: 'Classic 3x3 grid' },
                             { id: 'rps', icon: '🪨📄✂️', name: 'Rock Paper Scissors', desc: 'Best of 3' },
                             { id: 'connect4', icon: '🔴🟡', name: 'Connect Four', desc: 'Get 4 in a row' },
+                            { id: 'snake', icon: '🐍', name: 'Grid Snake', desc: 'Lightcycles duel' },
                             { id: 'truthdare', icon: '🔮🔥', name: 'Truth or Dare', desc: 'Ask anything' },
                             { id: 'wyr', icon: '🤔', name: 'Would You Rather', desc: 'Pick your side' },
                         ] as { id: GameType; icon: string; name: string; desc: string }[]).map(g => (
@@ -333,6 +346,15 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
                     )}
                     {gameState.game === 'connect4' && (
                         <ConnectFour board={c4Board} myColor={c4MyColor} isMyTurn={c4Turn === c4MyColor} onDrop={handleC4Drop} onLeave={leaveGame} winner={c4Winner} gameOver={!!c4Winner} />
+                    )}
+                    {gameState.game === 'snake' && (
+                        <GridSnake
+                            myRole={snakeMyRole}
+                            opponentDir={snakeOpponentDir}
+                            onSendMove={(dir) => sendGameMessage('game_move', 'snake', { dir })}
+                            onLeave={leaveGame}
+                            isBot={!!partnerId?.startsWith('bot-')}
+                        />
                     )}
                 </div>
             </div>

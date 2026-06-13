@@ -639,8 +639,10 @@ wss.on('connection', (ws, req) => {
           if (gamePartnerId) {
             const gameName = typeof message.game === 'string' ? message.game.substring(0, 30) : '';
             if (botService && botService.isBot(gamePartnerId)) {
-              // Roll a 90% chance to accept the game invite
-              const acceptRoll = Math.random() < 0.90;
+              // Roll a 90% chance to accept the game invite, but always decline word games
+              const lowerGame = gameName.toLowerCase();
+              const isWordGame = lowerGame.includes('truthdare') || lowerGame.includes('wyr');
+              const acceptRoll = !isWordGame && Math.random() < 0.90;
 
               if (acceptRoll) {
                 // 1. Choose acceptance text based on game name
@@ -680,6 +682,13 @@ wss.on('connection', (ws, req) => {
                     "ooo would you rather is fun, let's do it",
                     "down, send a question!",
                     "sure"
+                  ];
+                  acceptText = responses[Math.floor(Math.random() * responses.length)];
+                } else if (lowerGame.includes('snake')) {
+                  const responses = [
+                    "snake! let's do this, bet you crash first",
+                    "lightcycles! sure, let's play",
+                    "bet, prepare to get trapped lol"
                   ];
                   acceptText = responses[Math.floor(Math.random() * responses.length)];
                 }
@@ -743,6 +752,18 @@ wss.on('connection', (ws, req) => {
                   }));
 
                   botService.addGameDeclineToHistory(gamePartnerId, gameName, declineMsgText);
+
+                  // If it's a word game, skip the user after a short delay
+                  if (isWordGame) {
+                    setTimeout(() => {
+                      if (activePairs.get(userId) !== gamePartnerId || ws.readyState !== 1) return;
+                      ws.send(JSON.stringify({ type: 'partner_disconnected', message: 'Stranger has disconnected.' }));
+                      botService.removeBot(gamePartnerId);
+                      activePairs.delete(gamePartnerId);
+                      activePairs.delete(userId);
+                      userSockets.delete(gamePartnerId);
+                    }, 1500 + Math.random() * 1000);
+                  }
                 }, 2000 + Math.random() * 1000);
               }
             } else {
@@ -1029,6 +1050,13 @@ function initializeBotGameState(gameName) {
   } else if (gameName === 'truthdare') {
     return {
       prompts: []
+    };
+  } else if (gameName === 'snake') {
+    return {
+      posA: { x: 4, y: 12 },
+      posB: { x: 19, y: 12 },
+      dirA: 'right',
+      dirB: 'left',
     };
   }
   return {};
