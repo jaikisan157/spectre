@@ -30,8 +30,7 @@ export function HeroSection({
   const [customInput, setCustomInput] = useState('');
   const [showMore, setShowMore] = useState(false);
 
-  // Dynamic but stable fake online count (1k-4k) when real counts are low
-  const baseCount = (() => {
+  const [animatedOnlineCount, setAnimatedOnlineCount] = useState<number>(() => {
     if (onlineCount >= 1000) return onlineCount;
     // Seed changes slowly every 10 minutes to simulate realistic traffic shifts
     const now = new Date();
@@ -41,32 +40,35 @@ export function HeroSection({
     const pseudoRandom = Math.floor((x - Math.floor(x)) * 2600) + 1200; // 1200 to 3800
     const result = pseudoRandom + (onlineCount * 17) % 100;
     return Math.min(4000, Math.max(1000, result));
-  })();
+  });
 
-  const [animatedOnlineCount, setAnimatedOnlineCount] = useState<number>(baseCount);
-
-  // Sync state if baseCount changes (e.g. slow shift or real user count jumps)
+  // Keep a ref to onlineCount to access inside interval without triggering re-runs or resets
+  const onlineCountRef = useRef(onlineCount);
   useEffect(() => {
-    setAnimatedOnlineCount(baseCount);
-  }, [baseCount]);
+    onlineCountRef.current = onlineCount;
+    // If real count becomes high, immediately reflect it
+    if (onlineCount >= 1000) {
+      setAnimatedOnlineCount(onlineCount);
+    }
+  }, [onlineCount]);
 
   // Simulate realistic real-time fluctuations
   useEffect(() => {
-    // Only fluctuate if we are using the fake count (otherwise show real count precisely)
-    if (onlineCount >= 1000) return;
-
     const interval = setInterval(() => {
+      // If real count is high, do not fluctuate artificially
+      if (onlineCountRef.current >= 1000) return;
+
       setAnimatedOnlineCount(prev => {
-        // Random step between -4 and +4
-        const step = Math.floor(Math.random() * 9) - 4;
+        // Random step between -3 and +3
+        const step = Math.floor(Math.random() * 7) - 3;
         const next = prev + step;
         // Keep it bounded within 1,000 and 4,000
         return Math.min(4000, Math.max(1000, next));
       });
-    }, 5000); // every 5 seconds
+    }, 4000); // fluctuate every 4 seconds
 
     return () => clearInterval(interval);
-  }, [onlineCount]);
+  }, []);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
