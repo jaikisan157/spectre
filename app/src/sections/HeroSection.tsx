@@ -29,6 +29,19 @@ export function HeroSection({
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState('');
   const [showMore, setShowMore] = useState(false);
+
+  // Dynamic but stable fake online count (1k-4k) when real counts are low
+  const displayCount = (() => {
+    if (onlineCount >= 1000) return onlineCount;
+    // Seed changes slowly every 10 minutes to simulate realistic traffic shifts
+    const now = new Date();
+    const minutesBucket = Math.floor(now.getMinutes() / 10);
+    const seed = now.getDate() + now.getHours() * 100 + minutesBucket * 10000;
+    const x = Math.sin(seed) * 10000;
+    const pseudoRandom = Math.floor((x - Math.floor(x)) * 2600) + 1200; // 1200 to 3800
+    const result = pseudoRandom + (onlineCount * 17) % 100;
+    return Math.min(4000, Math.max(1000, result));
+  })();
   
   const containerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
@@ -105,12 +118,10 @@ export function HeroSection({
           <span className="font-heading font-semibold text-base text-text-primary tracking-tight">
             Spectre
           </span>
-          {onlineCount > 0 && (
-            <span className="font-mono text-[9px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-[0_0_8px_rgba(0,255,200,0.1)]">
-              <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse" />
-              {onlineCount.toLocaleString()} online
-            </span>
-          )}
+          <span className="font-mono text-[9px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-[0_0_8px_rgba(0,255,200,0.1)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse" />
+            {displayCount.toLocaleString()} online
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <button
