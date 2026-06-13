@@ -9,15 +9,17 @@ interface GridSnakeProps {
     onSendMove: (dir: Direction) => void;
     onLeave: () => void;
     isBot: boolean;
+    onPlayAgain?: () => void;
 }
 
 const GRID_SIZE = 24;
-const TICK_RATE = 180; // ms per tick
+const TICK_RATE = 260; // ms per tick (slower, more playable pace)
 
-export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot }: GridSnakeProps) {
+export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot, onPlayAgain }: GridSnakeProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [gameOver, setGameOver] = useState(false);
     const [winner, setWinner] = useState<'A' | 'B' | 'draw' | null>(null);
+    const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
     // Keep positions and trails in refs to access in the game loop without re-triggering effects
     const stateRef = useRef({
@@ -54,7 +56,7 @@ export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot }: G
         onSendMove(newDir);
     }, [isMyRoleA, onSendMove, gameOver]);
 
-    // Handle keypresses
+    // Handle keyboard steering
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (gameOver) return;
@@ -72,6 +74,34 @@ export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot }: G
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [changeDirection, gameOver]);
+
+    // Handle Touch Swipe steering on canvas
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (gameOver) return;
+        const touch = e.touches[0];
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (gameOver || !touchStartRef.current) return;
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - touchStartRef.current.x;
+        const dy = touch.clientY - touchStartRef.current.y;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+
+        // Minimum swipe distance threshold (30 pixels)
+        if (Math.max(absX, absY) > 30) {
+            if (absX > absY) {
+                // Horizontal swipe
+                changeDirection(dx > 0 ? 'right' : 'left');
+            } else {
+                // Vertical swipe
+                changeDirection(dy > 0 ? 'down' : 'up');
+            }
+        }
+        touchStartRef.current = null;
+    };
 
     // Read opponent moves
     useEffect(() => {
@@ -108,14 +138,13 @@ export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot }: G
         };
 
         const next = getNextPos(botPos, botDir);
-        // If current direction is safe, 92% chance to keep it (prevents zig-zagging too much)
+        // If current direction is safe, 92% chance to keep it
         if (isSafe(next) && Math.random() < 0.92) {
             return;
         }
 
         // Try other directions
         const dirs: Direction[] = ['up', 'down', 'left', 'right'];
-        // Filter out opposite direction to prevent turning back into self
         const validDirs = dirs.filter(d => {
             if (botDir === 'left' && d === 'right') return false;
             if (botDir === 'right' && d === 'left') return false;
@@ -128,7 +157,6 @@ export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot }: G
         const safeDirs = validDirs.filter(d => isSafe(getNextPos(botPos, d)));
 
         if (safeDirs.length > 0) {
-            // Choose one randomly from the safe directions
             const chosen = safeDirs[Math.floor(Math.random() * safeDirs.length)];
             if (isMyRoleA) {
                 stateRef.current.dirB = chosen;
@@ -266,11 +294,10 @@ export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot }: G
                 ctx.shadowColor = glowColor;
                 ctx.fill();
 
-                // Reset shadow
                 ctx.shadowBlur = 0;
             };
 
-            // Draw trails (A is Cyan, B is Pink/Magenta)
+            // Draw trails (A is Cyan, B is Pink)
             drawTrail(state.trailA, '#00F0FF', 'rgba(0, 240, 255, 0.8)');
             drawTrail(state.trailB, '#FF007F', 'rgba(255, 0, 127, 0.8)');
 
@@ -283,91 +310,112 @@ export function GridSnake({ myRole, opponentDir, onSendMove, onLeave, isBot }: G
     }, [gameOver]);
 
     return (
-        <div className="flex flex-col items-center gap-4 select-none">
+        <div className="flex flex-col items-center gap-4 select-none w-full max-w-[min(300px,80vw)]">
             {/* Header */}
-            <div className="flex items-center justify-between w-full max-w-[280px]">
-                <span className="font-heading font-bold text-lg text-text-primary">Grid Snake</span>
+            <div className="flex items-center justify-between w-full">
+                <span className="font-heading font-bold text-base md:text-lg text-text-primary">Grid Snake</span>
                 <button
                     onClick={onLeave}
-                    className="font-mono text-xs text-red-400 hover:text-red-300 transition-colors px-3 py-1 rounded border border-red-400/30 hover:border-red-400/60"
+                    className="font-mono text-[10px] md:text-xs text-red-400 hover:text-red-300 transition-colors px-2.5 py-1 rounded border border-red-400/30 hover:border-red-400/60"
                 >
                     Leave
                 </button>
             </div>
 
-            <div className="font-mono text-xs text-text-secondary">
+            <div className="font-mono text-[10px] md:text-xs text-text-secondary">
                 You: <span className={`font-bold ${isMyRoleA ? 'text-neon-cyan' : 'text-pink-500'}`}>
                     {isMyRoleA ? '🔵 Player A (Cyan)' : '🔴 Player B (Pink)'}
                 </span>
             </div>
 
-            {/* Game Canvas */}
-            <div className="relative border border-white/10 rounded-lg overflow-hidden bg-black/60 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+            {/* Game Canvas Container - fully responsive */}
+            <div className="relative border border-white/10 rounded-lg overflow-hidden bg-black/60 shadow-[0_0_15px_rgba(0,0,0,0.5)] w-full aspect-square max-w-[min(280px,76vw)]">
                 <canvas
                     ref={canvasRef}
                     width={280}
                     height={280}
-                    className="block"
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                    className="block w-full h-full cursor-pointer"
+                    title="Swipe on canvas to steer"
                 />
 
                 {/* Game Over Screen */}
                 {gameOver && (
-                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-3 animate-fade-in">
-                        <span className="font-heading font-bold text-xl text-text-primary">GAME OVER</span>
-                        <span className={`font-mono text-sm font-semibold ${
+                    <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center gap-3 animate-fade-in p-4 text-center">
+                        <span className="font-heading font-bold text-lg md:text-xl text-text-primary tracking-wider">GAME OVER</span>
+                        <span className={`font-mono text-xs md:text-sm font-semibold ${
                             winner === 'draw' ? 'text-yellow-400' :
                             winner === myRole ? 'text-neon-green' : 'text-red-400'
                         }`}>
                             {winner === 'draw' ? "It's a Draw!" :
                              winner === myRole ? "🎉 You Won!" : "You Lost!"}
                         </span>
-                        <button
-                            onClick={onLeave}
-                            className="font-mono text-xs bg-white/10 hover:bg-white/20 text-text-primary px-4 py-2 rounded transition-all mt-2"
-                        >
-                            Return to Chat
-                        </button>
+                        <div className="flex gap-2.5 mt-2">
+                            <button
+                                onClick={onLeave}
+                                className="font-mono text-[11px] bg-white/10 hover:bg-white/20 text-text-primary px-3 py-1.5 rounded transition-all"
+                            >
+                                Leave
+                            </button>
+                            {onPlayAgain && (
+                                <button
+                                    onClick={onPlayAgain}
+                                    className="font-mono text-[11px] bg-neon-cyan text-black px-4.5 py-1.5 rounded font-bold transition-all btn-neon shadow-neon-small"
+                                >
+                                    Play Again
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* Mobile D-Pad controls */}
-            <div className="flex flex-col items-center gap-1.5 mt-2 md:hidden">
+            {/* Ergonomic Diamond D-pad */}
+            <div className="grid grid-cols-3 gap-1.5 w-36 h-28 my-1 md:hidden select-none">
+                <div />
                 <button
                     onClick={() => changeDirection('up')}
                     disabled={myDir === 'down' || gameOver}
-                    className="w-12 h-10 bg-white/5 border border-white/15 rounded flex items-center justify-center active:bg-white/15"
+                    className="bg-white/5 border border-white/10 rounded flex items-center justify-center text-sm text-text-secondary active:bg-neon-cyan/20 active:text-neon-cyan disabled:opacity-30 select-none"
                 >
                     ▲
                 </button>
-                <div className="flex gap-4">
-                    <button
-                        onClick={() => changeDirection('left')}
-                        disabled={myDir === 'right' || gameOver}
-                        className="w-12 h-10 bg-white/5 border border-white/15 rounded flex items-center justify-center active:bg-white/15"
-                    >
-                        ◀
-                    </button>
-                    <button
-                        onClick={() => changeDirection('right')}
-                        disabled={myDir === 'left' || gameOver}
-                        className="w-12 h-10 bg-white/5 border border-white/15 rounded flex items-center justify-center active:bg-white/15"
-                    >
-                        ▶
-                    </button>
+                <div />
+
+                <button
+                    onClick={() => changeDirection('left')}
+                    disabled={myDir === 'right' || gameOver}
+                    className="bg-white/5 border border-white/10 rounded flex items-center justify-center text-sm text-text-secondary active:bg-neon-cyan/20 active:text-neon-cyan disabled:opacity-30 select-none"
+                >
+                    ◀
+                </button>
+                <div className="flex items-center justify-center text-[9px] text-text-secondary/20 font-mono">
+                    PAD
                 </div>
+                <button
+                    onClick={() => changeDirection('right')}
+                    disabled={myDir === 'left' || gameOver}
+                    className="bg-white/5 border border-white/10 rounded flex items-center justify-center text-sm text-text-secondary active:bg-neon-cyan/20 active:text-neon-cyan disabled:opacity-30 select-none"
+                >
+                    ▶
+                </button>
+
+                <div />
                 <button
                     onClick={() => changeDirection('down')}
                     disabled={myDir === 'up' || gameOver}
-                    className="w-12 h-10 bg-white/5 border border-white/15 rounded flex items-center justify-center active:bg-white/15"
+                    className="bg-white/5 border border-white/10 rounded flex items-center justify-center text-sm text-text-secondary active:bg-neon-cyan/20 active:text-neon-cyan disabled:opacity-30 select-none"
                 >
                     ▼
                 </button>
+                <div />
             </div>
 
-            {/* Controls Help */}
-            <div className="hidden md:block font-mono text-[10px] text-text-secondary/40 text-center">
-                Use Arrow keys or WASD to steer
+            {/* Help text */}
+            <div className="font-mono text-[9px] text-text-secondary/40 text-center leading-normal">
+                <span className="hidden md:inline">Use Arrow keys or WASD to steer</span>
+                <span className="md:hidden">Swipe board or use D-pad to steer</span>
             </div>
         </div>
     );

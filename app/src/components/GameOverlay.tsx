@@ -93,7 +93,8 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
 
         switch (m.type) {
             case 'game_invite':
-                if (gameState.phase === 'idle' || gameState.phase === 'menu') {
+                if (gameState.phase === 'idle' || gameState.phase === 'menu' || gameState.phase === 'playing') {
+                    resetAll();
                     setGameState({ phase: 'invite_received', game: m.game as GameType });
                 }
                 break;
@@ -164,7 +165,7 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
             if (result === 'lose') newScore.them++;
             setRpsScore(newScore);
             if (newScore.me >= 2 || newScore.them >= 2) {
-                rpsTimerRef.current = setTimeout(() => { setGameState({ phase: 'idle' }); resetRPS(); }, 3000);
+                // Keep the state in playing, do not schedule auto-exit timer
             } else {
                 rpsTimerRef.current = setTimeout(() => { setRpsMyChoice(null); setRpsOppChoice(null); setRpsResult(null); setRpsRound(r => r + 1); }, 2000);
             }
@@ -333,10 +334,31 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <div className="bg-dark-card border border-white/10 rounded-xl p-4 md:p-5 shadow-2xl animate-fade-in-up max-h-[90vh] overflow-y-auto">
                     {gameState.game === 'tictactoe' && (
-                        <TicTacToe isMyTurn={tttTurn === tttMySymbol} mySymbol={tttMySymbol} onMove={handleTTTMove} onLeave={leaveGame} board={tttBoard} winner={tttWinner} gameOver={!!tttWinner} />
+                        <div className="flex flex-col items-center">
+                            <TicTacToe isMyTurn={tttTurn === tttMySymbol} mySymbol={tttMySymbol} onMove={handleTTTMove} onLeave={leaveGame} board={tttBoard} winner={tttWinner} gameOver={!!tttWinner} />
+                            {tttWinner && (
+                                <div className="flex gap-3 mt-4 w-full justify-center">
+                                    <button onClick={leaveGame} className="px-5 py-2 rounded-lg border border-white/15 bg-white/5 font-mono text-sm text-text-secondary hover:bg-white/10 transition-all">Leave</button>
+                                    <button onClick={() => sendInvite('tictactoe')} className="px-5 py-2 rounded-lg bg-neon-cyan text-black font-mono text-sm font-bold hover:bg-neon-cyan/90 transition-all shadow-neon-small">Play Again</button>
+                                </div>
+                            )}
+                        </div>
                     )}
                     {gameState.game === 'rps' && (
-                        <RockPaperScissors myChoice={rpsMyChoice} opponentChoice={rpsResult ? rpsOppChoice : null} onChoice={handleRPSChoice} onLeave={leaveGame} result={rpsResult} round={rpsRound} score={rpsScore} />
+                        <div className="flex flex-col items-center">
+                            <RockPaperScissors myChoice={rpsMyChoice} opponentChoice={rpsResult ? rpsOppChoice : null} onChoice={handleRPSChoice} onLeave={leaveGame} result={rpsResult} round={rpsRound} score={rpsScore} />
+                            {(rpsScore.me >= 2 || rpsScore.them >= 2) && (
+                                <div className="flex flex-col items-center gap-3 mt-4 w-full">
+                                    <div className={`font-mono text-sm font-bold ${rpsScore.me >= 2 ? 'text-neon-green' : 'text-red-400'}`}>
+                                        {rpsScore.me >= 2 ? '🏆 You won the Match!' : '❌ You lost the Match!'}
+                                    </div>
+                                    <div className="flex gap-3 justify-center w-full">
+                                        <button onClick={leaveGame} className="px-5 py-2 rounded-lg border border-white/15 bg-white/5 font-mono text-sm text-text-secondary hover:bg-white/10 transition-all">Leave</button>
+                                        <button onClick={() => sendInvite('rps')} className="px-5 py-2 rounded-lg bg-neon-cyan text-black font-mono text-sm font-bold hover:bg-neon-cyan/90 transition-all shadow-neon-small">Play Again</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
                     {gameState.game === 'truthdare' && (
                         <TruthDare onSendPrompt={handleTDPrompt} onLeave={leaveGame} prompts={tdPrompts} />
@@ -345,7 +367,15 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
                         <WouldYouRather onAnswer={handleWYRAnswer} onNext={handleWYRNext} onLeave={leaveGame} question={wyrQuestion} myAnswer={wyrMyAnswer} theirAnswer={wyrTheirAnswer} round={wyrRound} />
                     )}
                     {gameState.game === 'connect4' && (
-                        <ConnectFour board={c4Board} myColor={c4MyColor} isMyTurn={c4Turn === c4MyColor} onDrop={handleC4Drop} onLeave={leaveGame} winner={c4Winner} gameOver={!!c4Winner} />
+                        <div className="flex flex-col items-center">
+                            <ConnectFour board={c4Board} myColor={c4MyColor} isMyTurn={c4Turn === c4MyColor} onDrop={handleC4Drop} onLeave={leaveGame} winner={c4Winner} gameOver={!!c4Winner} />
+                            {c4Winner && (
+                                <div className="flex gap-3 mt-4 w-full justify-center">
+                                    <button onClick={leaveGame} className="px-5 py-2 rounded-lg border border-white/15 bg-white/5 font-mono text-sm text-text-secondary hover:bg-white/10 transition-all">Leave</button>
+                                    <button onClick={() => sendInvite('connect4')} className="px-5 py-2 rounded-lg bg-neon-cyan text-black font-mono text-sm font-bold hover:bg-neon-cyan/90 transition-all shadow-neon-small">Play Again</button>
+                                </div>
+                            )}
+                        </div>
                     )}
                     {gameState.game === 'snake' && (
                         <GridSnake
@@ -354,6 +384,7 @@ export function GameOverlay({ sendGameMessage, setGameHandler, isMatched, onPart
                             onSendMove={(dir) => sendGameMessage('game_move', 'snake', { dir })}
                             onLeave={leaveGame}
                             isBot={!!partnerId?.startsWith('bot-')}
+                            onPlayAgain={() => sendInvite('snake')}
                         />
                     )}
                 </div>
