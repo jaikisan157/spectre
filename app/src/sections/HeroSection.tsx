@@ -104,8 +104,8 @@ export function HeroSection({
     >
       {/* Fixed-height top nav bar */}
       <header className="flex items-center justify-between px-5 h-14 shrink-0 border-b border-white/5">
-        <div className="flex items-center gap-2 select-none no-select">
-          <GhostIcon size={20} className="text-text-primary" />
+        <div className="flex items-center gap-2.5 select-none no-select">
+          <GhostIcon size={32} className="text-text-primary" />
           <span className="font-heading font-semibold text-base text-text-primary tracking-tight">
             Spectre
           </span>
@@ -185,7 +185,7 @@ export function HeroSection({
               >
                 <div className="headline-line text-text-primary">TALK</div>
                 <div className="headline-line text-text-primary">TO</div>
-                <div className="headline-line text-neon-cyan neon-text">STRANGERS</div>
+                <div className="headline-line text-text-primary">STRANGERS</div>
               </h1>
             </div>
 
@@ -200,7 +200,7 @@ export function HeroSection({
             <button
               ref={ctaRef}
               onClick={() => onStartChat(selectedInterests, gender, preferredGender)}
-              className="btn-neon w-full md:w-auto bg-neon-cyan text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 neon-glow hover:shadow-neon-strong transition-all"
+              className="w-full md:w-auto bg-text-primary text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 hover:bg-text-secondary transition-all"
             >
               {selectedInterests.length > 0 ? `Start Chat (${selectedInterests.length})` : 'Start Chat'}
             </button>

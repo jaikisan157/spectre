@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { Eye, EyeOff, LogIn, UserPlus, AlertCircle } from 'lucide-react';
+import { GhostIcon } from '../components/GhostIcon';
 
 interface AuthPageProps {
   onRegister: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -82,13 +83,12 @@ export function AuthPage({ onRegister, onLogin }: AuthPageProps) {
       <div className="vignette" />
 
       {/* Title */}
-      <h1
-        ref={titleRef}
-        className="font-heading font-bold text-4xl md:text-5xl mb-8 text-center"
-      >
-        <span className="text-text-primary">Shadow</span>
-        <span className="text-neon-cyan neon-text">Chat</span>
-      </h1>
+      <div ref={titleRef} className="flex flex-col items-center justify-center gap-3.5 mb-8 select-none no-select">
+        <GhostIcon size={56} className="text-text-primary float-ghost" />
+        <h1 className="font-heading font-bold text-4xl md:text-5xl text-center text-text-primary tracking-tight">
+          Spectre
+        </h1>
+      </div>
 
       {/* Auth Card */}
       <div
@@ -101,7 +101,7 @@ export function AuthPage({ onRegister, onLogin }: AuthPageProps) {
             onClick={() => { setMode('register'); setError(''); }}
             className={`flex-1 pb-3 font-mono text-sm transition-colors relative ${
               mode === 'register'
-                ? 'text-neon-cyan'
+                ? 'text-text-primary'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -110,14 +110,14 @@ export function AuthPage({ onRegister, onLogin }: AuthPageProps) {
               <span>Register</span>
             </div>
             {mode === 'register' && (
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neon-cyan auth-tab-indicator" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-text-primary auth-tab-indicator" />
             )}
           </button>
           <button
             onClick={() => { setMode('login'); setError(''); }}
             className={`flex-1 pb-3 font-mono text-sm transition-colors relative ${
               mode === 'login'
-                ? 'text-neon-cyan'
+                ? 'text-text-primary'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -126,7 +126,7 @@ export function AuthPage({ onRegister, onLogin }: AuthPageProps) {
               <span>Login</span>
             </div>
             {mode === 'login' && (
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neon-cyan auth-tab-indicator" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-text-primary auth-tab-indicator" />
             )}
           </button>
         </div>
@@ -202,7 +202,7 @@ export function AuthPage({ onRegister, onLogin }: AuthPageProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-neon-cyan text-black font-heading font-semibold text-base py-3 rounded-lg btn-neon neon-glow disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full bg-text-primary text-black font-heading font-semibold text-base py-3 rounded-lg hover:bg-text-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -218,7 +218,7 @@ export function AuthPage({ onRegister, onLogin }: AuthPageProps) {
         {/* Switch mode */}
         <p className="text-center mt-5 font-mono text-xs text-text-secondary/50">
           {mode === 'register' ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button onClick={switchMode} className="text-neon-cyan hover:text-neon-cyan/80 transition-colors">
+          <button onClick={switchMode} className="text-text-primary underline hover:text-text-primary/80 transition-colors">
             {mode === 'register' ? 'Login' : 'Register'}
           </button>
         </p>
