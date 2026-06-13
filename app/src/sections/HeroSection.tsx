@@ -30,45 +30,7 @@ export function HeroSection({
   const [customInput, setCustomInput] = useState('');
   const [showMore, setShowMore] = useState(false);
 
-  const [animatedOnlineCount, setAnimatedOnlineCount] = useState<number>(() => {
-    if (onlineCount >= 1000) return onlineCount;
-    // Seed changes slowly every 10 minutes to simulate realistic traffic shifts
-    const now = new Date();
-    const minutesBucket = Math.floor(now.getMinutes() / 10);
-    const seed = now.getDate() + now.getHours() * 100 + minutesBucket * 10000;
-    const x = Math.sin(seed) * 10000;
-    const pseudoRandom = Math.floor((x - Math.floor(x)) * 2600) + 1200; // 1200 to 3800
-    const result = pseudoRandom + (onlineCount * 17) % 100;
-    return Math.min(4000, Math.max(1000, result));
-  });
 
-  // Keep a ref to onlineCount to access inside interval without triggering re-runs or resets
-  const onlineCountRef = useRef(onlineCount);
-  useEffect(() => {
-    onlineCountRef.current = onlineCount;
-    // If real count becomes high, immediately reflect it
-    if (onlineCount >= 1000) {
-      setAnimatedOnlineCount(onlineCount);
-    }
-  }, [onlineCount]);
-
-  // Simulate realistic real-time fluctuations
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // If real count is high, do not fluctuate artificially
-      if (onlineCountRef.current >= 1000) return;
-
-      setAnimatedOnlineCount(prev => {
-        // Random step between -3 and +3
-        const step = Math.floor(Math.random() * 7) - 3;
-        const next = prev + step;
-        // Keep it bounded within 1,000 and 4,000
-        return Math.min(4000, Math.max(1000, next));
-      });
-    }, 4000); // fluctuate every 4 seconds
-
-    return () => clearInterval(interval);
-  }, []);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
@@ -147,7 +109,7 @@ export function HeroSection({
           </span>
           <span className="font-mono text-[9px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-[0_0_8px_rgba(0,255,200,0.1)]">
             <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse" />
-            {animatedOnlineCount.toLocaleString()} online
+            {onlineCount.toLocaleString()} online
           </span>
         </div>
         <div className="flex items-center gap-3">

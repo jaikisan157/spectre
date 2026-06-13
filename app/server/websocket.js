@@ -256,8 +256,37 @@ function disconnectUser(userId) {
   userAuthMap.delete(userId);
 }
 
+let currentFakeOnlineCount = (() => {
+  const now = new Date();
+  const minutesBucket = Math.floor(now.getMinutes() / 10);
+  const seed = now.getDate() + now.getHours() * 100 + minutesBucket * 10000;
+  const x = Math.sin(seed) * 10000;
+  const pseudoRandom = Math.floor((x - Math.floor(x)) * 2600) + 1200; // 1200 to 3800
+  return pseudoRandom;
+})();
+
+setInterval(() => {
+  const step = Math.floor(Math.random() * 7) - 3;
+  const next = currentFakeOnlineCount + step;
+  currentFakeOnlineCount = Math.min(4000, Math.max(1000, next));
+  
+  const realCount = wss.clients.size;
+  if (realCount < 1000) {
+    const message = JSON.stringify({ type: 'online_count', count: currentFakeOnlineCount });
+    for (const client of wss.clients) {
+      if (client.readyState === 1) client.send(message);
+    }
+  }
+}, 4000);
+
+function getDisplayOnlineCount() {
+  const realCount = wss.clients.size;
+  if (realCount >= 1000) return realCount;
+  return currentFakeOnlineCount;
+}
+
 function broadcastOnlineCount() {
-  const count = wss.clients.size;
+  const count = getDisplayOnlineCount();
   const message = JSON.stringify({ type: 'online_count', count });
   for (const client of wss.clients) {
     if (client.readyState === 1) client.send(message);
@@ -316,7 +345,7 @@ wss.on('connection', (ws, req) => {
   ws.send(JSON.stringify({
     type: 'connected',
     userId: userId,
-    onlineCount: wss.clients.size,
+    onlineCount: getDisplayOnlineCount(),
     interests: getInterestStats()
   }));
 
