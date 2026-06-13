@@ -51,6 +51,7 @@ export function useWebSocket(token: string | null = null): {
   const handleMessageRef = useRef<(data: WebSocketMessage) => void>(() => { });
   const isDuplicateTabRef = useRef(false);
   const gameHandlerRef = useRef<((msg: WebSocketMessage) => void) | null>(null);
+  const lastSentTypingRef = useRef<boolean>(false);
 
   const connect = useCallback(() => {
     // Don't reconnect if this tab was kicked as duplicate
@@ -420,8 +421,15 @@ export function useWebSocket(token: string | null = null): {
       case 'error':
         setChatState(prev => ({
           ...prev,
-          status: 'error',
-          errorMessage: data.message,
+          messages: [
+            ...prev.messages,
+            {
+              id: generateMessageId(),
+              text: '⚠️ ' + data.message,
+              sender: 'system',
+              timestamp: Date.now(),
+            },
+          ],
         }));
         break;
 
@@ -474,6 +482,8 @@ export function useWebSocket(token: string | null = null): {
 
   const sendTyping = useCallback((isTyping: boolean) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      if (isTyping === lastSentTypingRef.current) return;
+      lastSentTypingRef.current = isTyping;
       wsRef.current.send(JSON.stringify({
         type: 'typing',
         isTyping,
@@ -516,6 +526,10 @@ export function useWebSocket(token: string | null = null): {
       }));
     }
   }, []);
+
+  useEffect(() => {
+    lastSentTypingRef.current = false;
+  }, [chatState.status, chatState.partnerId]);
 
   useEffect(() => {
     connect();
