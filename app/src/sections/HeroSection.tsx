@@ -101,10 +101,16 @@ export function HeroSection({
       {/* Fixed-height top nav bar */}
       <header className="flex items-center justify-between px-5 h-14 shrink-0 border-b border-white/5">
         <div className="flex items-center gap-2.5 select-none no-select">
-          <GhostIcon size={32} className="text-text-primary" />
+          <GhostIcon size={32} className="text-text-primary animate-pulse" />
           <span className="font-heading font-semibold text-base text-text-primary tracking-tight">
             Spectre
           </span>
+          {onlineCount > 0 && (
+            <span className="font-mono text-[9px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-[0_0_8px_rgba(0,255,200,0.1)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse" />
+              {onlineCount.toLocaleString()} online
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -296,23 +302,6 @@ export function HeroSection({
         </div>
       </div>
 
-      {/* Online Counter — always visible at bottom */}
-      <div className="flex items-center gap-4 px-5 pb-4 pt-2 shrink-0">
-        {onlineCount > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
-            <span className="font-mono text-[10px] text-neon-cyan">
-              {onlineCount.toLocaleString()} online
-            </span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-          <span className="font-mono text-[10px] text-text-secondary">
-            Live server connected
-          </span>
-        </div>
-      </div>
     </div>
   );
 }
