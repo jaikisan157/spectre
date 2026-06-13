@@ -31,7 +31,7 @@ export function HeroSection({
   const [showMore, setShowMore] = useState(false);
 
   // Dynamic but stable fake online count (1k-4k) when real counts are low
-  const displayCount = (() => {
+  const baseCount = (() => {
     if (onlineCount >= 1000) return onlineCount;
     // Seed changes slowly every 10 minutes to simulate realistic traffic shifts
     const now = new Date();
@@ -42,6 +42,31 @@ export function HeroSection({
     const result = pseudoRandom + (onlineCount * 17) % 100;
     return Math.min(4000, Math.max(1000, result));
   })();
+
+  const [animatedOnlineCount, setAnimatedOnlineCount] = useState<number>(baseCount);
+
+  // Sync state if baseCount changes (e.g. slow shift or real user count jumps)
+  useEffect(() => {
+    setAnimatedOnlineCount(baseCount);
+  }, [baseCount]);
+
+  // Simulate realistic real-time fluctuations
+  useEffect(() => {
+    // Only fluctuate if we are using the fake count (otherwise show real count precisely)
+    if (onlineCount >= 1000) return;
+
+    const interval = setInterval(() => {
+      setAnimatedOnlineCount(prev => {
+        // Random step between -4 and +4
+        const step = Math.floor(Math.random() * 9) - 4;
+        const next = prev + step;
+        // Keep it bounded within 1,000 and 4,000
+        return Math.min(4000, Math.max(1000, next));
+      });
+    }, 5000); // every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [onlineCount]);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
@@ -120,7 +145,7 @@ export function HeroSection({
           </span>
           <span className="font-mono text-[9px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-[0_0_8px_rgba(0,255,200,0.1)]">
             <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse" />
-            {displayCount.toLocaleString()} online
+            {animatedOnlineCount.toLocaleString()} online
           </span>
         </div>
         <div className="flex items-center gap-3">
