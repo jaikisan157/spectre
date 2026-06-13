@@ -319,7 +319,7 @@ export function ChatSection({
       <header className="h-14 md:h-16 header-border flex items-center justify-between px-3 md:px-[5vw] shrink-0" style={{ background: 'var(--dark-bg)' }}>
         {/* Logo */}
         <div className="flex items-center gap-2.5 select-none no-select">
-          <GhostIcon size={26} className="text-text-primary animate-pulse" />
+          <GhostIcon size={26} color={isDark ? '#ffffff' : '#0891B2'} className="animate-pulse" />
           <button
             onClick={onGoHome}
             className="font-heading font-semibold text-base md:text-lg text-text-primary hover:text-neon-cyan transition-colors"

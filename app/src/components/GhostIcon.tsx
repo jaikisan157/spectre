@@ -1,10 +1,13 @@
 interface GhostIconProps {
   className?: string;
   size?: number;
-  // Allows custom color for sunglasses or other parts if needed
+  color?: string; // explicit fill color override
 }
 
-export function GhostIcon({ className = '', size = 24 }: GhostIconProps) {
+export function GhostIcon({ className = '', size = 24, color }: GhostIconProps) {
+  // If no explicit color, uses currentColor (set via text-* class)
+  const fill = color || 'currentColor';
+
   return (
     <svg
       width={size}
@@ -25,19 +28,19 @@ export function GhostIcon({ className = '', size = 24 }: GhostIconProps) {
            C33 74, 25 74, 21 79
            C17 84, 20 78, 20 78
            Z"
-        fill="currentColor"
-        stroke="currentColor"
+        fill={fill}
+        stroke={fill}
         strokeWidth="5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Sunglasses (Streetwear, cool look) */}
-      <g className="text-black dark:text-black">
+      {/* Sunglasses */}
+      <g>
         {/* Left Lens */}
         <polygon
           points="28,40 48,40 46,52 30,50"
           fill="black"
-          stroke="currentColor"
+          stroke={fill}
           strokeWidth="3"
           strokeLinejoin="round"
         />
@@ -45,17 +48,17 @@ export function GhostIcon({ className = '', size = 24 }: GhostIconProps) {
         <polygon
           points="52,40 72,40 70,50 54,52"
           fill="black"
-          stroke="currentColor"
+          stroke={fill}
           strokeWidth="3"
           strokeLinejoin="round"
         />
         {/* Bridge */}
         <rect x="47" y="42" width="6" height="3" fill="black" />
-        {/* Glasses side arms */}
-        <path d="M22 42 L28 42" stroke="currentColor" strokeWidth="2" />
-        <path d="M72 42 L78 42" stroke="currentColor" strokeWidth="2" />
+        {/* Side arms */}
+        <path d="M22 42 L28 42" stroke={fill} strokeWidth="2" />
+        <path d="M72 42 L78 42" stroke={fill} strokeWidth="2" />
       </g>
-      {/* Simple cool mouth / smirk (very thin and nonchalant) */}
+      {/* Smirk */}
       <path
         d="M 45 62 Q 50 64, 55 62"
         stroke="black"

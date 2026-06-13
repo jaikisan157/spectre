@@ -84,7 +84,7 @@ export function AuthPage({ onRegister, onLogin }: AuthPageProps) {
 
       {/* Title */}
       <div ref={titleRef} className="flex flex-col items-center justify-center gap-3.5 mb-8 select-none no-select">
-        <GhostIcon size={56} className="text-text-primary float-ghost" />
+        <GhostIcon size={56} color="#00ffc8" className="float-ghost" />
         <h1 className="font-heading font-bold text-4xl md:text-5xl text-center tracking-tight">
           <span className="text-text-primary">Spec</span>
           <span className="text-neon-cyan neon-text">tre</span>

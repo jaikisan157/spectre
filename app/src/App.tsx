@@ -13,6 +13,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 function App() {
   const [showChat, setShowChat] = useState(false);
+  const [heroKey, setHeroKey] = useState(0);
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem('spectre_theme') !== 'light';
   });
@@ -111,6 +112,8 @@ function App() {
   const handleGoHome = useCallback(() => {
     stopChat();
     setShowChat(false);
+    // Force HeroSection to remount (resets ghost animations)
+    setHeroKey(k => k + 1);
     // Clean up the URL hash
     if (window.location.hash === '#chat') {
       window.history.back();
@@ -123,6 +126,7 @@ function App() {
       if (showChat) {
         stopChat();
         setShowChat(false);
+        setHeroKey(k => k + 1);
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -134,18 +138,17 @@ function App() {
     if (!showChat) return;
 
     const ctx = gsap.context(() => {
-      // Hero exit animation
+      // Hero is already faded by ghost pick animation, just ensure it's gone
       gsap.to(heroRef.current, {
-        yPercent: -30,
         opacity: 0,
-        duration: 0.8,
-        ease: 'power2.inOut',
+        duration: 0.3,
+        ease: 'power2.out',
       });
 
-      // Chat entrance animation
+      // Chat entrance — smooth fade + gentle scale in (no slide)
       gsap.fromTo(chatRef.current,
-        { yPercent: 100, opacity: 0 },
-        { yPercent: 0, opacity: 1, duration: 0.8, ease: 'power2.out', delay: 0.2 }
+        { opacity: 0, scale: 0.97 },
+        { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out', delay: 0.1 }
       );
     }, mainRef);
 
@@ -194,6 +197,7 @@ function App() {
 
       {/* Hero Section - has theme toggle built in */}
       <div
+        key={heroKey}
         ref={heroRef}
         className={`${showChat ? 'absolute inset-0 z-10' : 'relative z-20'}`}
       >
