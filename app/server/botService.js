@@ -97,25 +97,25 @@ export class BotService {
         }
 
         // Configure fallback chain priority
-        const priorityEnv = process.env.PROVIDER_PRIORITY || 'gemini,groq,openrouter';
+        const priorityEnv = process.env.PROVIDER_PRIORITY || 'gemini,openrouter,groq';
         const priorityList = priorityEnv.split(',').map(p => p.trim().toLowerCase());
 
         this.activeProviders = [];
         for (const provider of priorityList) {
             if (provider === 'gemini' && this.geminiKey) {
                 this.activeProviders.push('gemini');
-            } else if (provider === 'groq' && this.groqKey) {
-                this.activeProviders.push('groq');
             } else if (provider === 'openrouter' && this.openrouterKey) {
                 this.activeProviders.push('openrouter');
+            } else if (provider === 'groq' && this.groqKey) {
+                this.activeProviders.push('groq');
             }
         }
 
         // Fallback checks if list is empty
         if (this.activeProviders.length === 0) {
             if (this.geminiKey) this.activeProviders.push('gemini');
-            if (this.groqKey) this.activeProviders.push('groq');
             if (this.openrouterKey) this.activeProviders.push('openrouter');
+            if (this.groqKey) this.activeProviders.push('groq');
         }
 
         this.activeBots = new Map();
