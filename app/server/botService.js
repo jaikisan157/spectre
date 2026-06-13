@@ -119,6 +119,7 @@ export class BotService {
         }
 
         this.activeBots = new Map();
+        this.providerCooldowns = new Map();
         console.log(`🤖 Bot service initialized with active fallback chain: [${this.activeProviders.join(' -> ')}]`);
     }
 
@@ -310,7 +311,17 @@ export class BotService {
             let text = '';
             let usedProvider = '';
 
-            for (const provider of this.activeProviders) {
+            // Filter out providers on cooldown, unless ALL configured active providers are on cooldown
+            let providersToTry = this.activeProviders.filter(provider => {
+                const cooldownUntil = this.providerCooldowns.get(provider);
+                return !cooldownUntil || Date.now() >= cooldownUntil;
+            });
+
+            if (providersToTry.length === 0) {
+                providersToTry = this.activeProviders;
+            }
+
+            for (const provider of providersToTry) {
                 try {
                     if (provider === 'gemini') {
                         text = await this.callGemini(bot.messages, maxTokens);
@@ -326,6 +337,10 @@ export class BotService {
                     }
                 } catch (providerError) {
                     console.warn(`⚠️ Provider ${provider} failed: ${providerError.message || providerError}`);
+                    
+                    // Put provider on a 60-second cooldown
+                    this.providerCooldowns.set(provider, Date.now() + 60000);
+                    console.log(`⏳ Provider ${provider} put on cooldown for 60 seconds`);
                 }
             }
 
