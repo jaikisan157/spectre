@@ -5,6 +5,7 @@ import { NetworkIndicator } from '@/components/NetworkIndicator';
 import { GameOverlay } from '@/components/GameOverlay';
 import { ReportModal } from '@/components/ReportModal';
 import type { Message, WebSocketMessage } from '@/types/chat';
+import { GhostIcon } from '@/components/GhostIcon';
 
 interface ChatSectionProps {
   chatState: {
@@ -317,12 +318,13 @@ export function ChatSection({
       {/* Header */}
       <header className="h-14 md:h-16 header-border flex items-center justify-between px-3 md:px-[5vw] shrink-0" style={{ background: 'var(--dark-bg)' }}>
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 select-none no-select">
+          <GhostIcon size={18} className="text-text-primary animate-pulse" />
           <button
             onClick={onGoHome}
             className="font-heading font-semibold text-base md:text-lg text-text-primary hover:text-neon-cyan transition-colors"
           >
-            ShadowChat
+            Spectre
           </button>
           <NetworkIndicator wsConnected={connected} />
         </div>

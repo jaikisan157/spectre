@@ -1,5 +1,5 @@
 /**
- * Stripe Payment Service for ShadowChat
+ * Stripe Payment Service for Spectre
  * 
  * Handles premium subscriptions and unban payments.
  * Uses Stripe Checkout for secure payment processing.
@@ -12,7 +12,7 @@
  *    STRIPE_WEBHOOK_SECRET=whsec_...
  */
 
-const PREMIUM_PRICE_CENTS = 499;    // $4.99/month
+const PREMIUM_PRICE_CENTS = 499;    // $4.99/week
 const UNBAN_PRICE_CENTS = 999;      // $9.99 one-time
 
 export class PaymentService {
@@ -60,11 +60,11 @@ export class PaymentService {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'ShadowChat Premium',
+              name: 'Spectre Premium',
               description: 'Gender filters, priority matching, and more',
             },
             unit_amount: PREMIUM_PRICE_CENTS,
-            recurring: { interval: 'month' },
+            recurring: { interval: 'week' },
           },
           quantity: 1,
         }],
@@ -110,8 +110,8 @@ export class PaymentService {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'ShadowChat — Account Unban',
-              description: 'Remove ban from your ShadowChat account',
+              name: 'Spectre — Account Unban',
+              description: 'Remove ban from your Spectre account',
             },
             unit_amount: UNBAN_PRICE_CENTS,
           },
@@ -152,7 +152,7 @@ export class PaymentService {
       this.pendingSessions.delete(sessionId);
 
       if (type === 'premium') {
-        this.authService.activatePremium(username, 30);
+        this.authService.activatePremium(username, 7);
         return { success: true, type: 'premium', username };
       } else if (type === 'unban') {
         this.authService.unbanUser(username);
@@ -168,7 +168,7 @@ export class PaymentService {
           this.pendingSessions.delete(sessionId);
 
           if (type === 'premium') {
-            this.authService.activatePremium(username, 30);
+            this.authService.activatePremium(username, 7);
             return { success: true, type: 'premium', username };
           } else if (type === 'unban') {
             this.authService.unbanUser(username);
@@ -199,7 +199,7 @@ export class PaymentService {
         const { username, type } = session.metadata || {};
 
         if (username && type === 'premium') {
-          this.authService.activatePremium(username, 30);
+          this.authService.activatePremium(username, 7);
           console.log(`💳 Webhook: Premium activated for ${username}`);
         } else if (username && type === 'unban') {
           this.authService.unbanUser(username);

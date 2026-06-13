@@ -32,7 +32,7 @@ export function ReportModal({ onSubmit, onClose }: ReportModalProps) {
         <div className="bg-dark-card border border-white/10 rounded-xl p-6 max-w-[min(22rem,90vw)] shadow-2xl animate-fade-in-up text-center" onClick={e => e.stopPropagation()}>
           <div className="text-4xl mb-3">✅</div>
           <p className="font-heading font-semibold text-text-primary text-base">Report Submitted</p>
-          <p className="font-mono text-xs text-text-secondary mt-1">Thank you for keeping ShadowChat safe.</p>
+          <p className="font-mono text-xs text-text-secondary mt-1">Thank you for keeping Spectre safe.</p>
         </div>
       </div>
     );

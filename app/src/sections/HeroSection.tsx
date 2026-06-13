@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { Sun, Moon } from 'lucide-react';
 import type { InterestStat, AuthUser } from '@/types/chat';
+import { GhostIcon } from '../components/GhostIcon';
+import spectreGhost from '../spectre_ghost.png';
 
 interface HeroSectionProps {
   onStartChat: (interests: string[], gender?: string, preferredGender?: string) => void;
@@ -102,9 +104,12 @@ export function HeroSection({
     >
       {/* Fixed-height top nav bar */}
       <header className="flex items-center justify-between px-5 h-14 shrink-0 border-b border-white/5">
-        <span className="font-heading font-semibold text-base text-text-primary tracking-tight">
-          ShadowChat
-        </span>
+        <div className="flex items-center gap-2 select-none no-select">
+          <GhostIcon size={20} className="text-text-primary" />
+          <span className="font-heading font-semibold text-base text-text-primary tracking-tight">
+            Spectre
+          </span>
+        </div>
         <div className="flex items-center gap-3">
           {/* Premium button */}
           {user && (
@@ -162,6 +167,17 @@ export function HeroSection({
 
           {/* Left column: headline + CTA */}
           <div className="flex-shrink-0 md:max-w-[45%]">
+            <div className="headline-line flex items-center gap-3.5 mb-5 select-none no-select">
+              <img
+                src={spectreGhost}
+                alt="Spectre Ghost Mascot"
+                className="w-14 h-14 object-contain float-ghost"
+              />
+              <span className="font-mono text-[10px] text-text-secondary uppercase tracking-widest bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+                Ghost Mode Active
+              </span>
+            </div>
+
             <div ref={headlineRef} className="mb-4">
               <h1
                 className="font-heading font-bold uppercase tracking-tight leading-[0.92]"

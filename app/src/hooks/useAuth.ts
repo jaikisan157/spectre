@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { AuthUser } from '@/types/chat';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const TOKEN_KEY = 'shadowchat_auth_token';
+const TOKEN_KEY = 'spectre_auth_token';
 
 interface AuthState {
   isLoggedIn: boolean;

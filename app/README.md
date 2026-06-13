@@ -1,8 +1,8 @@
-# 🌑 ShadowChat
+# 🌑 Spectre
 
 An anonymous text chat application with a black + neon hacker aesthetic. Talk to strangers in real-time with no accounts, no history — just pure anonymous conversation.
 
-![ShadowChat](https://your-screenshot-url.com)
+![Spectre](https://your-screenshot-url.com)
 
 ## ✨ Features
 
@@ -40,8 +40,8 @@ An anonymous text chat application with a black + neon hacker aesthetic. Talk to
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/shadowchat.git
-cd shadowchat
+git clone https://github.com/yourusername/spectre.git
+cd spectre
 ```
 
 2. Install dependencies:
@@ -74,7 +74,7 @@ For production, set your WebSocket server URL.
 ## 📁 Project Structure
 
 ```
-shadowchat/
+spectre/
 ├── server/
 │   ├── index.js          # Server entry point
 │   └── websocket.js      # WebSocket server & matchmaking logic

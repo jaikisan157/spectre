@@ -28,7 +28,7 @@ app.use((req, res, next) => {
 
 // ── Root Endpoint ──
 app.get('/', (req, res) => {
-  res.send('ShadowChat Server is running.');
+  res.send('Spectre Server is running.');
 });
 
 // ── Health Check ──
@@ -149,7 +149,7 @@ server.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════════════════╗
 ║                                                        ║
-║   🌑 ShadowChat Server                                ║
+║   🌑 Spectre Server                                   ║
 ║                                                        ║
 ║   Server running on port ${PORT}                        ║
 ║                                                        ║

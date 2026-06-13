@@ -34,7 +34,7 @@ function getRandomAge(range) {
     return Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
 }
 
-const SYSTEM_PROMPT_TEMPLATE = `You are roleplaying as a real person on an anonymous chat app called ShadowChat. Stay in character at all times.
+const SYSTEM_PROMPT_TEMPLATE = `You are roleplaying as a real person on an anonymous chat app called Spectre. Stay in character at all times.
 
 YOUR CHARACTER:
 - Gender: {{gender}}, Age: {{age}}, ASL: "{{asl}}"

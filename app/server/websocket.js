@@ -323,7 +323,7 @@ wss.on('connection', (ws, req) => {
       console.log(`Duplicate tab detected for browserId: ${browserId}, closing old tab`);
       oldWs.send(JSON.stringify({
         type: 'duplicate_tab',
-        message: 'You opened ShadowChat in another tab. This tab has been disconnected.'
+        message: 'You opened Spectre in another tab. This tab has been disconnected.'
       }));
       oldWs.close();
     }

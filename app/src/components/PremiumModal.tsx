@@ -87,7 +87,7 @@ export function PremiumModal({ onClose, onSubscribe }: PremiumModalProps) {
           </div>
 
           <h2 className="font-heading font-extrabold text-2xl text-text-primary uppercase tracking-wider">
-            ShadowChat <span className="text-neon-cyan neon-glow">Premium</span>
+            Spectre <span className="text-neon-cyan neon-glow">Premium</span>
           </h2>
           <p className="font-mono text-xs text-text-secondary mt-1">Upgrade your anonymous chatting experience</p>
         </div>
@@ -112,7 +112,7 @@ export function PremiumModal({ onClose, onSubscribe }: PremiumModalProps) {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-heading font-bold text-text-primary text-lg flex items-baseline gap-1">
-                $4.99 <span className="font-mono text-xs font-normal text-text-secondary">/ month</span>
+                $4.99 <span className="font-mono text-xs font-normal text-text-secondary">/ week</span>
               </p>
               <p className="font-mono text-[10px] text-text-secondary/50">Cancel anytime. Instant activation.</p>
             </div>

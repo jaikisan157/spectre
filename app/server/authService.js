@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 
 /**
- * In-memory auth service for ShadowChat
+ * In-memory auth service for Spectre
  * Anonymous accounts: username + password only, no email
  * 
  * In production, replace with a real database (SQLite, Postgres, MongoDB, etc.)
@@ -174,7 +174,7 @@ export class AuthService {
 
   // ── Premium Management ──
 
-  activatePremium(username, durationDays = 30) {
+  activatePremium(username, durationDays = 7) {
     const user = users.get(username.toLowerCase());
     if (!user) return false;
 

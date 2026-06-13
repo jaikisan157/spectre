@@ -15,7 +15,7 @@ gsap.registerPlugin(ScrollTrigger);
 function App() {
   const [showChat, setShowChat] = useState(false);
   const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem('shadowchat_theme') !== 'light';
+    return localStorage.getItem('spectre_theme') !== 'light';
   });
   const [showPremium, setShowPremium] = useState(false);
 
@@ -54,10 +54,10 @@ function App() {
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.remove('light');
-      localStorage.setItem('shadowchat_theme', 'dark');
+      localStorage.setItem('spectre_theme', 'dark');
     } else {
       document.documentElement.classList.add('light');
-      localStorage.setItem('shadowchat_theme', 'light');
+      localStorage.setItem('spectre_theme', 'light');
     }
   }, [isDark]);
 
