@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
 import { Sun, Moon } from 'lucide-react';
 import type { InterestStat, AuthUser } from '@/types/chat';
@@ -26,12 +26,21 @@ export function HeroSection({
   onOpenAuth,
   onLogout
 }: HeroSectionProps) {
+  interface FloatingGhost {
+    id: number;
+    x: number;
+    y: number;
+    scale: number;
+    opacity: number;
+    rotation: number;
+  }
+
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState('');
   const [showMore, setShowMore] = useState(false);
+  const [ghosts, setGhosts] = useState<FloatingGhost[]>([]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-
-  
   const containerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
   const subheadRef = useRef<HTMLParagraphElement>(null);
@@ -39,6 +48,7 @@ export function HeroSection({
   const microRef = useRef<HTMLSpanElement>(null);
 
   const toggleInterest = (interest: string) => {
+    if (isTransitioning) return;
     setSelectedInterests(prev =>
       prev.includes(interest)
         ? prev.filter(i => i !== interest)
@@ -47,6 +57,7 @@ export function HeroSection({
   };
 
   const addCustomInterest = () => {
+    if (isTransitioning) return;
     const trimmed = customInput.trim();
     if (trimmed && !selectedInterests.includes(trimmed) && selectedInterests.length < 5) {
       setSelectedInterests(prev => [...prev, trimmed]);
@@ -54,6 +65,46 @@ export function HeroSection({
     }
   };
 
+  // Generate background ghosts on mount
+  useEffect(() => {
+    const generatedGhosts = Array.from({ length: 12 }).map((_, i) => ({
+      id: i,
+      x: 5 + Math.random() * 90, // 5% to 95%
+      y: 10 + Math.random() * 80, // 10% to 90%
+      scale: 0.35 + Math.random() * 0.45, // scale between 0.35 and 0.8
+      opacity: 0.05 + Math.random() * 0.12, // subtle opacity between 0.05 and 0.17
+      rotation: -30 + Math.random() * 60,
+    }));
+    setGhosts(generatedGhosts);
+  }, []);
+
+  // Float background ghosts
+  useEffect(() => {
+    if (ghosts.length === 0) return;
+
+    ghosts.forEach(g => {
+      gsap.set(`#bg-ghost-${g.id}`, {
+        xPercent: -50,
+        yPercent: -50,
+        x: 0,
+        y: 0,
+        scale: g.scale,
+        rotation: g.rotation,
+      });
+
+      gsap.to(`#bg-ghost-${g.id}`, {
+        x: () => -25 + Math.random() * 50,
+        y: () => -25 + Math.random() * 50,
+        rotation: () => g.rotation - 15 + Math.random() * 30,
+        duration: 4 + Math.random() * 4,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
+    });
+  }, [ghosts]);
+
+  // Entrance animations for UI
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.set('.headline-line', { opacity: 0, y: 18 });
@@ -83,25 +134,107 @@ export function HeroSection({
     return () => ctx.revert();
   }, []);
 
+  const handleStartClick = useCallback(() => {
+    if (isTransitioning) return;
+    if (ghosts.length === 0) {
+      onStartChat(selectedInterests);
+      return;
+    }
+
+    setIsTransitioning(true);
+    const selectedIdx = Math.floor(Math.random() * ghosts.length);
+    const selectedGhost = ghosts[selectedIdx];
+
+    // Kill all ongoing float animations
+    gsap.killTweensOf('.bg-ghost-element');
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        onStartChat(selectedInterests);
+      }
+    });
+
+    // Fade out UI columns, header, and other ghosts
+    tl.to([
+      'header',
+      '.hero-content-left',
+      '.interest-section',
+      `.bg-ghost-element:not(#bg-ghost-${selectedGhost.id})`
+    ], {
+      opacity: 0,
+      duration: 0.55,
+      ease: 'power2.out',
+    });
+
+    const elem = document.getElementById(`bg-ghost-${selectedGhost.id}`);
+    const rect = elem?.getBoundingClientRect();
+    if (rect) {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const elemX = rect.left + rect.width / 2;
+      const elemY = rect.top + rect.height / 2;
+      const moveX = centerX - elemX;
+      const moveY = centerY - elemY;
+
+      // Make the selected ghost zoom forward into center
+      tl.to(elem, {
+        x: `+=${moveX}`,
+        y: `+=${moveY}`,
+        scale: 14,
+        opacity: 1,
+        rotation: 0,
+        duration: 0.9,
+        ease: 'power3.inOut',
+      }, '-=0.5');
+    } else {
+      onStartChat(selectedInterests);
+    }
+  }, [isTransitioning, ghosts, selectedInterests, onStartChat]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
-        onStartChat(selectedInterests);
+        handleStartClick();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onStartChat, selectedInterests]);
+  }, [handleStartClick]);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full min-h-screen flex flex-col"
+      className="relative w-full min-h-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--dark-bg)' }}
     >
+      {/* Background Floating Ghosts */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {ghosts.map((g) => (
+          <div
+            key={g.id}
+            id={`bg-ghost-${g.id}`}
+            className="bg-ghost-element absolute pointer-events-none select-none"
+            style={{
+              left: `${g.x}%`,
+              top: `${g.y}%`,
+              opacity: g.opacity,
+              width: '64px',
+              height: '64px',
+            }}
+          >
+            <img
+              src={spectreGhost}
+              alt=""
+              className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(0,255,200,0.15)]"
+              draggable="false"
+            />
+          </div>
+        ))}
+      </div>
+
       {/* Fixed-height top nav bar */}
-      <header className="flex items-center justify-between px-5 h-14 shrink-0 border-b border-white/5">
+      <header className="relative z-10 flex items-center justify-between px-5 h-14 shrink-0 border-b border-white/5">
         <div className="flex items-center gap-2.5 select-none no-select">
           <GhostIcon size={32} className="text-text-primary animate-pulse" />
           <span className="font-heading font-semibold text-base text-text-primary tracking-tight">
@@ -148,11 +281,11 @@ export function HeroSection({
       </header>
 
       {/* Scrollable main content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="relative z-10 flex-1 overflow-y-auto">
         <div className="px-5 pt-6 pb-4 flex flex-col md:flex-row md:items-center md:gap-[4vw] md:min-h-[calc(100vh-56px)]">
 
           {/* Left column: headline + CTA */}
-          <div className="flex-shrink-0 md:max-w-[45%]">
+          <div className="hero-content-left flex-shrink-0 md:max-w-[45%]">
             <div className="headline-line flex items-center gap-3.5 mb-5 select-none no-select">
               <img
                 src={spectreGhost}
@@ -185,8 +318,9 @@ export function HeroSection({
             {/* CTA Button — full width on mobile */}
             <button
               ref={ctaRef}
-              onClick={() => onStartChat(selectedInterests)}
-              className="btn-neon w-full md:w-auto bg-neon-cyan text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 neon-glow hover:shadow-neon-strong transition-all"
+              onClick={handleStartClick}
+              disabled={isTransitioning}
+              className={`btn-neon w-full md:w-auto bg-neon-cyan text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 neon-glow hover:shadow-neon-strong transition-all ${isTransitioning ? 'opacity-55 cursor-not-allowed' : ''}`}
             >
               {selectedInterests.length > 0 ? `Start Chat (${selectedInterests.length})` : 'Start Chat'}
             </button>
@@ -249,13 +383,15 @@ export function HeroSection({
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addCustomInterest(); } }}
                 placeholder="Type your own..."
                 maxLength={20}
-                className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 font-mono text-xs text-text-primary placeholder:text-text-secondary/40 focus:border-neon-cyan/50 focus:outline-none transition-colors"
+                disabled={isTransitioning}
+                className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 font-mono text-xs text-text-primary placeholder:text-text-secondary/40 focus:border-neon-cyan/50 focus:outline-none transition-colors disabled:opacity-50"
                 style={{ fontSize: '16px' /* prevent iOS zoom */ }}
               />
               {customInput.trim() && (
                 <button
                   onClick={addCustomInterest}
-                  className="px-4 py-2 rounded-full font-mono text-xs bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50 hover:bg-neon-cyan/30 active:bg-neon-cyan/40 transition-colors"
+                  disabled={isTransitioning}
+                  className="px-4 py-2 rounded-full font-mono text-xs bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50 hover:bg-neon-cyan/30 active:bg-neon-cyan/40 transition-colors disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -269,7 +405,8 @@ export function HeroSection({
                   <button
                     key={interest}
                     onClick={() => toggleInterest(interest)}
-                    className="px-3 py-1.5 rounded-full font-mono text-xs transition-all border bg-neon-cyan/20 text-neon-cyan border-neon-cyan/50 shadow-[0_0_8px_rgba(0,255,200,0.15)] active:scale-95"
+                    disabled={isTransitioning}
+                    className="px-3 py-1.5 rounded-full font-mono text-xs transition-all border bg-neon-cyan/20 text-neon-cyan border-neon-cyan/50 shadow-[0_0_8px_rgba(0,255,200,0.15)] active:scale-95 disabled:opacity-50"
                   >
                     {interest} ✕
                   </button>
@@ -281,7 +418,8 @@ export function HeroSection({
                   <button
                     key={interest.name}
                     onClick={() => toggleInterest(interest.name)}
-                    className={`px-3 py-1.5 rounded-full font-mono text-xs transition-all border active:scale-95 ${isSelected
+                    disabled={isTransitioning}
+                    className={`px-3 py-1.5 rounded-full font-mono text-xs transition-all border active:scale-95 disabled:opacity-50 ${isSelected
                       ? 'bg-neon-cyan/20 text-neon-cyan border-neon-cyan/50 shadow-[0_0_8px_rgba(0,255,200,0.15)]'
                       : 'bg-white/5 text-text-secondary border-white/10 hover:border-white/25 hover:bg-white/10'
                       }`}
