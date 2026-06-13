@@ -79,22 +79,8 @@ app.post('/api/logout', (req, res) => {
 
 // ── Payment Endpoints ──
 
-app.post('/api/checkout/premium', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  const user = authService.verifyToken(token);
-  
-  if (!user) {
-    return res.status(401).json({ success: false, error: 'Not authenticated' });
-  }
-
-  const origin = req.headers.origin || 'http://localhost:5173';
-  const result = await paymentService.createPremiumCheckoutSession(
-    user.username,
-    `${origin}/#payment-success`,
-    `${origin}/#payment-cancelled`
-  );
-
-  res.json(result);
+app.post('/api/checkout/premium', (req, res) => {
+  res.status(501).json({ success: false, error: 'Premium tier is disabled' });
 });
 
 app.post('/api/checkout/unban', async (req, res) => {

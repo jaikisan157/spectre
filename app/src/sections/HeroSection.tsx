@@ -6,7 +6,7 @@ import { GhostIcon } from '../components/GhostIcon';
 import spectreGhost from '../spectre_ghost.png';
 
 interface HeroSectionProps {
-  onStartChat: (interests: string[], gender?: string, preferredGender?: string) => void;
+  onStartChat: (interests: string[]) => void;
   onlineCount: number;
   isDark: boolean;
   toggleTheme: () => void;
@@ -14,7 +14,6 @@ interface HeroSectionProps {
   user: AuthUser | null;
   onOpenAuth: () => void;
   onLogout: () => void;
-  onOpenPremium: () => void;
 }
 
 export function HeroSection({
@@ -25,14 +24,11 @@ export function HeroSection({
   interestStats,
   user,
   onOpenAuth,
-  onLogout,
-  onOpenPremium
+  onLogout
 }: HeroSectionProps) {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState('');
   const [showMore, setShowMore] = useState(false);
-  const [gender, setGender] = useState<'male' | 'female' | 'any'>('any');
-  const [preferredGender, setPreferredGender] = useState<'male' | 'female' | 'any'>('any');
   
   const containerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
@@ -89,12 +85,12 @@ export function HeroSection({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
-        onStartChat(selectedInterests, gender, preferredGender);
+        onStartChat(selectedInterests);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onStartChat, selectedInterests, gender, preferredGender]);
+  }, [onStartChat, selectedInterests]);
 
   return (
     <div
@@ -111,22 +107,6 @@ export function HeroSection({
           </span>
         </div>
         <div className="flex items-center gap-3">
-          {/* Premium button */}
-          {user && (
-            user.isPremium ? (
-              <span className="font-mono text-[10px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 px-2.5 py-1 rounded flex items-center gap-1 shadow-[0_0_8px_rgba(0,255,200,0.1)]">
-                💎 Premium
-              </span>
-            ) : (
-              <button
-                onClick={onOpenPremium}
-                className="font-mono text-[10px] text-neon-cyan hover:bg-neon-cyan/10 border border-neon-cyan/30 px-2.5 py-1 rounded transition-colors flex items-center gap-1"
-              >
-                💎 Get Premium
-              </button>
-            )
-          )}
-
           <button
             onClick={toggleTheme}
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 active:bg-white/15 transition-all border border-white/10"
@@ -140,7 +120,7 @@ export function HeroSection({
           {/* Auth state */}
           {user ? (
             <div className="flex items-center gap-2">
-              <span className={`font-mono text-xs ${user.isPremium ? 'text-neon-cyan font-bold' : 'text-text-primary'}`}>
+              <span className="font-mono text-xs text-text-primary">
                 {user.displayName}
               </span>
               <button
@@ -199,7 +179,7 @@ export function HeroSection({
             {/* CTA Button — full width on mobile */}
             <button
               ref={ctaRef}
-              onClick={() => onStartChat(selectedInterests, gender, preferredGender)}
+              onClick={() => onStartChat(selectedInterests)}
               className="btn-neon w-full md:w-auto bg-neon-cyan text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 neon-glow hover:shadow-neon-strong transition-all"
             >
               {selectedInterests.length > 0 ? `Start Chat (${selectedInterests.length})` : 'Start Chat'}
@@ -309,82 +289,6 @@ export function HeroSection({
                   </button>
                 );
               })}
-            </div>
-
-            {/* Gender Filters */}
-            <div className="mt-6 border-t border-white/5 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-mono text-[10px] text-text-secondary/60 uppercase tracking-wider">
-                  Gender Matchmaking Filters
-                </h3>
-                {!user?.isPremium && (
-                  <button
-                    onClick={onOpenPremium}
-                    className="text-neon-cyan hover:underline font-mono text-[9px] flex items-center gap-1 uppercase tracking-tight font-semibold"
-                  >
-                    🔒 Unlock with Premium
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {/* My Gender */}
-                <div>
-                  <label className="block font-mono text-[9px] text-text-secondary/40 mb-1.5 uppercase">I am:</label>
-                  <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 relative">
-                    {!user?.isPremium && (
-                      <div
-                        onClick={onOpenPremium}
-                        className="absolute inset-0 bg-black/55 backdrop-blur-[0.5px] rounded-lg cursor-pointer flex items-center justify-center font-mono text-[8px] text-neon-cyan font-bold tracking-tight hover:bg-black/35 transition-all"
-                      >
-                        PREMIUM ONLY
-                      </div>
-                    )}
-                    {(['male', 'female', 'any'] as const).map(g => (
-                      <button
-                        key={g}
-                        disabled={!user?.isPremium}
-                        onClick={() => setGender(g)}
-                        className={`flex-1 py-1 rounded-md font-mono text-[10px] capitalize transition-all ${
-                          gender === g
-                            ? 'bg-neon-cyan text-black font-bold shadow-[0_0_8px_rgba(0,255,200,0.25)]'
-                            : 'text-text-secondary hover:text-text-primary'
-                        }`}
-                      >
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Match with */}
-                <div>
-                  <label className="block font-mono text-[9px] text-text-secondary/40 mb-1.5 uppercase">Match with:</label>
-                  <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 relative">
-                    {!user?.isPremium && (
-                      <div
-                        onClick={onOpenPremium}
-                        className="absolute inset-0 bg-black/55 backdrop-blur-[0.5px] rounded-lg cursor-pointer flex items-center justify-center font-mono text-[8px] text-neon-cyan font-bold tracking-tight hover:bg-black/35 transition-all"
-                      >
-                        PREMIUM ONLY
-                      </div>
-                    )}
-                    {(['male', 'female', 'any'] as const).map(pg => (
-                      <button
-                        key={pg}
-                        disabled={!user?.isPremium}
-                        onClick={() => setPreferredGender(pg)}
-                        className={`flex-1 py-1 rounded-md font-mono text-[10px] capitalize transition-all ${
-                          preferredGender === pg
-                            ? 'bg-neon-cyan text-black font-bold shadow-[0_0_8px_rgba(0,255,200,0.25)]'
-                            : 'text-text-secondary hover:text-text-primary'
-                        }`}
-                      >
-                        {pg}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
 
           </div>

@@ -132,43 +132,7 @@ export function useAuth() {
     }
   }, []);
 
-  // Purchase premium
-  const purchasePremium = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return { success: false, error: 'Not logged in' };
 
-    try {
-      const res = await fetch(`${API_URL}/api/checkout/premium`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await res.json();
-
-      if (data.success && data.url) {
-        // If demo mode, navigate and auto-verify
-        if (data.demo) {
-          const verifyRes = await fetch(`${API_URL}/api/payment/verify?session_id=${data.sessionId}`);
-          const verifyData = await verifyRes.json();
-          if (verifyData.success) {
-            await refreshUser();
-            return { success: true };
-          }
-        } else {
-          // Real Stripe — redirect to checkout
-          window.location.href = data.url;
-        }
-        return { success: true };
-      }
-
-      return { success: false, error: data.error };
-    } catch {
-      return { success: false, error: 'Payment service unavailable' };
-    }
-  }, [refreshUser]);
 
   // Purchase unban
   const purchaseUnban = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
@@ -212,7 +176,6 @@ export function useAuth() {
     login,
     logout,
     refreshUser,
-    purchasePremium,
     purchaseUnban,
   };
 }

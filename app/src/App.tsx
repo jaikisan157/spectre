@@ -7,7 +7,6 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthPage } from '@/sections/AuthPage';
 import { BanScreen } from '@/components/BanScreen';
-import { PremiumModal } from '@/components/PremiumModal';
 import './App.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -17,7 +16,6 @@ function App() {
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem('spectre_theme') !== 'light';
   });
-  const [showPremium, setShowPremium] = useState(false);
 
   const mainRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -32,7 +30,6 @@ function App() {
     login,
     logout,
     refreshUser,
-    purchasePremium,
     purchaseUnban,
   } = useAuth();
 
@@ -93,13 +90,13 @@ function App() {
   }, [refreshUser]);
 
   // Handle start chat from hero
-  const handleStartChat = useCallback((interests: string[] = [], gender?: string, preferredGender?: string) => {
+  const handleStartChat = useCallback((interests: string[] = []) => {
     setShowChat(true);
     window.history.pushState({ chat: true }, '', '#chat');
     setTimeout(() => {
-      findMatch(interests, gender, preferredGender, user?.isPremium);
+      findMatch(interests);
     }, 500);
-  }, [findMatch, user]);
+  }, [findMatch]);
 
   // Handle new chat
   const handleNewChat = useCallback(() => {
@@ -206,7 +203,6 @@ function App() {
           user={user}
           onOpenAuth={() => {}} // fallback (not used as logged in)
           onLogout={logout}
-          onOpenPremium={() => setShowPremium(true)}
         />
       </div>
 
@@ -234,13 +230,7 @@ function App() {
         </div>
       )}
 
-      {/* Premium Upgrade Modal */}
-      {showPremium && (
-        <PremiumModal
-          onClose={() => setShowPremium(false)}
-          onSubscribe={purchasePremium}
-        />
-      )}
+
 
       {/* Connection Status Toast */}
       {!connected && showChat && (

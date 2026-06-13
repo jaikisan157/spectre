@@ -24,13 +24,13 @@ function generateMessageId(): string {
 export function useWebSocket(token: string | null = null): {
   connected: boolean;
   chatState: ChatState;
-  findMatch: (interests?: string[], gender?: string, preferredGender?: string, isPremium?: boolean) => void;
+  findMatch: (interests?: string[]) => void;
   cancelSearch: () => void;
   sendMessage: (text: string) => void;
   sendTyping: (isTyping: boolean) => void;
   sendReaction: (messageId: string, emoji: string) => void;
   stopChat: () => void;
-  newChat: (interests?: string[], gender?: string, preferredGender?: string, isPremium?: boolean) => void;
+  newChat: (interests?: string[]) => void;
   sendReport: (reason: string, description: string, targetId?: string) => void;
   sendGameMessage: (type: string, game: string, data?: unknown) => void;
   setGameHandler: (handler: ((msg: WebSocketMessage) => void) | null) => void;
@@ -438,7 +438,7 @@ export function useWebSocket(token: string | null = null): {
   // Keep ref in sync so WebSocket closure always uses latest handler
   handleMessageRef.current = handleMessage;
 
-  const findMatch = useCallback((interests?: string[], gender?: string, preferredGender?: string, isPremium?: boolean) => {
+  const findMatch = useCallback((interests?: string[]) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       // Clear messages and set searching state
       setChatState(prev => ({
@@ -453,9 +453,6 @@ export function useWebSocket(token: string | null = null): {
       wsRef.current.send(JSON.stringify({
         type: 'find_match',
         interests: interests || [],
-        gender: gender || 'any',
-        preferredGender: preferredGender || 'any',
-        isPremium: isPremium || false,
       }));
     }
   }, []);
@@ -490,7 +487,7 @@ export function useWebSocket(token: string | null = null): {
     }
   }, []);
 
-  const newChat = useCallback((interests?: string[], gender?: string, preferredGender?: string, isPremium?: boolean) => {
+  const newChat = useCallback((interests?: string[]) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       // Clear messages and set searching state
       setChatState(prev => ({
@@ -505,9 +502,6 @@ export function useWebSocket(token: string | null = null): {
       wsRef.current.send(JSON.stringify({
         type: 'new_chat',
         interests: interests || [],
-        gender: gender || 'any',
-        preferredGender: preferredGender || 'any',
-        isPremium: isPremium || false,
       }));
     }
   }, []);

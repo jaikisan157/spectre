@@ -144,29 +144,8 @@ function handleReport(reporterUserId, targetUserId, reason, description) {
   return { success: true, banned: false };
 }
 
-// ── Gender-Aware Matchmaking ──
+// ── Matchmaking ──
 const INTEREST_MATCH_TIMEOUT = 15000; // 15 seconds strict interest matching
-
-function genderCompatible(user1, user2) {
-  // If neither is premium, always compatible (no filtering)
-  if (!user1.isPremium && !user2.isPremium) return true;
-
-  // Check user1's preference against user2's gender
-  if (user1.isPremium && user1.preferredGender && user1.preferredGender !== 'any') {
-    if (user2.gender && user2.gender !== 'any' && user2.gender !== user1.preferredGender) {
-      return false;
-    }
-  }
-
-  // Check user2's preference against user1's gender
-  if (user2.isPremium && user2.preferredGender && user2.preferredGender !== 'any') {
-    if (user1.gender && user1.gender !== 'any' && user1.gender !== user2.preferredGender) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 function findMatch(userId, interests = []) {
   const hasInterests = interests.length > 0;
@@ -175,11 +154,10 @@ function findMatch(userId, interests = []) {
   const normalizedInterests = interests.map(i => i.toLowerCase().trim());
 
   if (hasInterests) {
-    // Pass 1: Try to find someone with common interests + gender compatible
+    // Pass 1: Try to find someone with common interests
     for (const [waitingId, waitingUser] of waitingUsers) {
       if (waitingId === userId) continue;
       if (waitingUser.interests.length === 0) continue;
-      if (!genderCompatible(userWaitEntry || {}, waitingUser)) continue;
 
       const waitingNormalized = waitingUser.interests.map(i => i.toLowerCase().trim());
       const hasCommon = normalizedInterests.some(i => waitingNormalized.includes(i));
@@ -192,10 +170,9 @@ function findMatch(userId, interests = []) {
     }
   }
 
-  // Pass 2: No interests OR timed out — match with anyone available + gender compatible
+  // Pass 2: No interests OR timed out — match with anyone available
   for (const [waitingId, waitingUser] of waitingUsers) {
     if (waitingId === userId) continue;
-    if (!genderCompatible(userWaitEntry || {}, waitingUser)) continue;
 
     if (waitingUser.interests.length > 0) {
       const otherWaitTime = Date.now() - waitingUser.timestamp;
@@ -205,13 +182,11 @@ function findMatch(userId, interests = []) {
     return waitingId;
   }
 
-  // Pass 3: If we have no interests, match with ANYONE gender-compatible
+  // Pass 3: If we have no interests, match with ANYONE available
   if (!hasInterests) {
-    for (const [waitingId, waitingUser] of waitingUsers) {
+    for (const [waitingId] of waitingUsers) {
       if (waitingId !== userId) {
-        if (genderCompatible(userWaitEntry || {}, waitingUser)) {
-          return waitingId;
-        }
+        return waitingId;
       }
     }
   }
@@ -368,11 +343,6 @@ wss.on('connection', (ws, req) => {
           userInterestsMap.set(userId, userInterests);
           addUserInterests(userInterests);
 
-          // Gender preferences
-          const gender = message.gender || 'any';
-          const preferredGender = message.preferredGender || 'any';
-          const isPremium = message.isPremium || false;
-
           const matchId = findMatch(userId, userInterests);
 
           if (matchId) {
@@ -380,7 +350,7 @@ wss.on('connection', (ws, req) => {
             pairUsers(userId, matchId);
           } else {
             waitingUsers.set(userId, {
-              ws, interests: message.interests || [], gender, preferredGender, isPremium,
+              ws, interests: message.interests || [],
               timestamp: Date.now()
             });
             ws.send(JSON.stringify({ type: 'waiting', message: 'Looking for someone to chat with...' }));
@@ -488,12 +458,8 @@ wss.on('connection', (ws, req) => {
         case 'new_chat': {
           endChat(userId);
 
-          const gender = message.gender || 'any';
-          const preferredGender = message.preferredGender || 'any';
-          const isPremium = message.isPremium || false;
-
           waitingUsers.set(userId, {
-            ws, interests: message.interests || [], gender, preferredGender, isPremium,
+            ws, interests: message.interests || [],
             timestamp: Date.now()
           });
 
