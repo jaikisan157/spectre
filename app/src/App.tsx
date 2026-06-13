@@ -5,7 +5,6 @@ import { HeroSection } from '@/sections/HeroSection';
 import { ChatSection } from '@/sections/ChatSection';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAuth } from '@/hooks/useAuth';
-import { AuthPage } from '@/sections/AuthPage';
 import { BanScreen } from '@/components/BanScreen';
 import './App.css';
 
@@ -23,12 +22,9 @@ function App() {
   const chatRef = useRef<HTMLDivElement>(null);
 
   const {
-    isLoggedIn,
     user,
     token,
     loading: authLoading,
-    register,
-    login,
     logout,
     refreshUser,
     purchaseUnban,
@@ -171,10 +167,12 @@ function App() {
     );
   }
 
-  // 1. Auth Gate
+  // 1. Auth Gate (Hidden/Disabled for now)
+  /*
   if (!isLoggedIn) {
     return <AuthPage onRegister={register} onLogin={login} />;
   }
+  */
 
   // 2. Ban Screen Gate
   if (user?.isBanned) {
@@ -207,9 +205,6 @@ function App() {
           isDark={isDark}
           toggleTheme={toggleTheme}
           interestStats={chatState.interestStats}
-          user={user}
-          onOpenAuth={() => {}} // fallback (not used as logged in)
-          onLogout={logout}
         />
       </div>
 

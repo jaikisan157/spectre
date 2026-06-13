@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
 import { Sun, Moon } from 'lucide-react';
-import type { InterestStat, AuthUser } from '@/types/chat';
+import type { InterestStat } from '@/types/chat';
 import { GhostIcon } from '../components/GhostIcon';
 import { FloatingGhosts } from '../components/FloatingGhosts';
 import type { FloatingGhostsHandle } from '../components/FloatingGhosts';
@@ -13,9 +13,6 @@ interface HeroSectionProps {
   isDark: boolean;
   toggleTheme: () => void;
   interestStats: InterestStat[];
-  user: AuthUser | null;
-  onOpenAuth: () => void;
-  onLogout: () => void;
 }
 
 export function HeroSection({
@@ -23,10 +20,7 @@ export function HeroSection({
   onlineCount,
   isDark,
   toggleTheme,
-  interestStats,
-  user,
-  onOpenAuth,
-  onLogout
+  interestStats
 }: HeroSectionProps) {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState('');
@@ -143,28 +137,6 @@ export function HeroSection({
               ? <Sun className="w-4 h-4 text-text-secondary" />
               : <Moon className="w-4 h-4 text-text-secondary" />}
           </button>
-
-          {/* Auth state */}
-          {user ? (
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-text-primary">
-                {user.displayName}
-              </span>
-              <button
-                onClick={onLogout}
-                className={`font-mono text-[10px] text-text-secondary hover:text-text-primary px-2.5 py-1 rounded transition-colors ${isDark ? 'bg-white/5 border border-white/10' : 'bg-black/5 border border-black/10'}`}
-              >
-                Logout
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onOpenAuth}
-              className="font-mono text-[10px] bg-neon-cyan text-black px-3 py-1 rounded border border-neon-cyan font-bold transition-all hover:bg-neon-cyan/80 hover:shadow-[0_0_8px_rgba(0,255,200,0.3)]"
-            >
-              Sign In Anonymously
-            </button>
-          )}
         </div>
       </header>
 
