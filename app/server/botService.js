@@ -82,21 +82,44 @@ export class BotService {
         if (typeof apiKeyOrKeys === 'object' && apiKeyOrKeys !== null) {
             this.geminiKey = apiKeyOrKeys.gemini || null;
             this.groqKey = apiKeyOrKeys.groq || null;
-            this.provider = this.geminiKey ? 'gemini' : (this.groqKey ? 'groq' : 'none');
+            this.openrouterKey = apiKeyOrKeys.openrouter || null;
         } else {
-            const provider = providerOrUndefined || 'groq';
-            if (provider === 'gemini') {
+            this.geminiKey = process.env.GEMINI_API_KEY || null;
+            this.groqKey = process.env.GROQ_API_KEY || null;
+            this.openrouterKey = process.env.OPENROUTER_API_KEY || null;
+            if (providerOrUndefined === 'gemini') {
                 this.geminiKey = apiKeyOrKeys;
-                this.groqKey = process.env.GROQ_API_KEY || null;
-            } else {
+            } else if (providerOrUndefined === 'groq') {
                 this.groqKey = apiKeyOrKeys;
-                this.geminiKey = process.env.GEMINI_API_KEY || null;
+            } else if (providerOrUndefined === 'openrouter') {
+                this.openrouterKey = apiKeyOrKeys;
             }
-            this.provider = provider;
         }
-        this.apiKey = this.geminiKey || this.groqKey;
+
+        // Configure fallback chain priority
+        const priorityEnv = process.env.PROVIDER_PRIORITY || 'gemini,groq,openrouter';
+        const priorityList = priorityEnv.split(',').map(p => p.trim().toLowerCase());
+
+        this.activeProviders = [];
+        for (const provider of priorityList) {
+            if (provider === 'gemini' && this.geminiKey) {
+                this.activeProviders.push('gemini');
+            } else if (provider === 'groq' && this.groqKey) {
+                this.activeProviders.push('groq');
+            } else if (provider === 'openrouter' && this.openrouterKey) {
+                this.activeProviders.push('openrouter');
+            }
+        }
+
+        // Fallback checks if list is empty
+        if (this.activeProviders.length === 0) {
+            if (this.geminiKey) this.activeProviders.push('gemini');
+            if (this.groqKey) this.activeProviders.push('groq');
+            if (this.openrouterKey) this.activeProviders.push('openrouter');
+        }
+
         this.activeBots = new Map();
-        console.log(`🤖 Bot service initialized (Primary: ${this.provider}, Gemini: ${!!this.geminiKey}, Groq: ${!!this.groqKey})`);
+        console.log(`🤖 Bot service initialized with active fallback chain: [${this.activeProviders.join(' -> ')}]`);
     }
 
     getPersona(userInterests = []) {
@@ -209,6 +232,41 @@ export class BotService {
         return data.choices?.[0]?.message?.content?.trim() || '';
     }
 
+    async callOpenRouter(messages, maxTokens) {
+        if (!this.openrouterKey) throw new Error('OpenRouter API key not configured');
+        const systemPrompt = messages[0].content;
+        const formattedMessages = [
+            { role: 'system', content: systemPrompt },
+            ...messages.slice(1)
+        ];
+
+        const model = process.env.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free';
+
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.openrouterKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://spectre.app',
+                'X-Title': 'Spectre',
+            },
+            body: JSON.stringify({
+                model,
+                messages: formattedMessages,
+                max_tokens: maxTokens,
+                temperature: 0.9,
+            }),
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`OpenRouter error (${res.status}): ${err}`);
+        }
+
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content?.trim() || '';
+    }
+
     async getResponse(botUserId, userMessage) {
         const bot = this.activeBots.get(botUserId);
         if (!bot) return null;
@@ -246,55 +304,46 @@ export class BotService {
             console.log(`🤖 [${bot.persona.name}] User: "${userMessage}"`);
 
             // Vary response length: sometimes short, sometimes longer
-            // Minimum 50 tokens to avoid cut-off mid-sentence
             const roll = Math.random();
             const maxTokens = roll < 0.25 ? 50 : (roll < 0.6 ? 80 : 150);
 
             let text = '';
-            let usedProvider = this.provider;
+            let usedProvider = '';
 
-            if (this.provider === 'gemini') {
+            for (const provider of this.activeProviders) {
                 try {
-                    text = await this.callGemini(bot.messages, maxTokens);
-                } catch (geminiError) {
-                    console.warn(`⚠️ Gemini API failed: ${geminiError.message}`);
-                    if (this.groqKey) {
-                        console.log(`🔄 Mid-convo fallback: switching to Groq for bot ${bot.name}...`);
-                        usedProvider = 'groq';
-                        text = await this.callGroq(bot.messages, maxTokens);
-                    } else {
-                        throw geminiError;
-                    }
-                }
-            } else if (this.provider === 'groq') {
-                try {
-                    text = await this.callGroq(bot.messages, maxTokens);
-                } catch (groqError) {
-                    console.warn(`⚠️ Groq API failed: ${groqError.message}`);
-                    if (this.geminiKey) {
-                        console.log(`🔄 Mid-convo fallback: switching to Gemini for bot ${bot.name}...`);
-                        usedProvider = 'gemini';
+                    if (provider === 'gemini') {
                         text = await this.callGemini(bot.messages, maxTokens);
-                    } else {
-                        throw groqError;
+                    } else if (provider === 'groq') {
+                        text = await this.callGroq(bot.messages, maxTokens);
+                    } else if (provider === 'openrouter') {
+                        text = await this.callOpenRouter(bot.messages, maxTokens);
                     }
+
+                    if (text) {
+                        usedProvider = provider;
+                        break;
+                    }
+                } catch (providerError) {
+                    console.warn(`⚠️ Provider ${provider} failed: ${providerError.message || providerError}`);
                 }
-            } else {
-                throw new Error('No active API provider configured');
+            }
+
+            if (!text) {
+                throw new Error('All active API providers in fallback chain failed');
             }
 
             // Clean up — remove quotes if the model wraps response in them
-            if (text && text.startsWith('"') && text.endsWith('"')) {
+            if (text.startsWith('"') && text.endsWith('"')) {
                 text = text.slice(1, -1);
             }
 
             console.log(`🤖 [${bot.persona.name}] Bot (${usedProvider}): "${text}"`);
 
-            if (!text) return null;
             bot.messages.push({ role: 'assistant', content: text });
             return text;
         } catch (error) {
-            console.error('🤖 Both primary and fallback providers failed:', error.message);
+            console.error('🤖 All fallback providers failed:', error.message);
             const fallbackText = getFallbackResponse(bot, userMessage);
             console.log(`🤖 [${bot.persona.name}] Bot (Local Fallback): "${fallbackText}"`);
             bot.messages.push({ role: 'assistant', content: fallbackText });

@@ -17,12 +17,13 @@ const paymentService = new PaymentService(process.env.STRIPE_SECRET_KEY, authSer
 let botService = null;
 const geminiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_KEY_HERE' ? process.env.GEMINI_API_KEY : null;
 const groqKey = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'YOUR_GROQ_KEY_HERE' ? process.env.GROQ_API_KEY : null;
+const openrouterKey = process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY !== 'YOUR_OPENROUTER_KEY_HERE' ? process.env.OPENROUTER_API_KEY : null;
 
-if (geminiKey || groqKey) {
-  botService = new BotService({ gemini: geminiKey, groq: groqKey });
-  console.log(`🤖 Bot service enabled (Primary: ${botService.provider === 'gemini' ? 'Gemini' : 'Groq'}, Fallback switching active)`);
+if (geminiKey || groqKey || openrouterKey) {
+  botService = new BotService({ gemini: geminiKey, groq: groqKey, openrouter: openrouterKey });
+  console.log(`🤖 Bot service enabled with active fallback chain: [${botService.activeProviders.join(' -> ')}]`);
 } else {
-  console.log('⚠️ Neither GEMINI_API_KEY nor GROQ_API_KEY set — bots disabled');
+  console.log('⚠️ Neither GEMINI_API_KEY, GROQ_API_KEY nor OPENROUTER_API_KEY set — bots disabled');
 }
 
 // Create HTTP server (Express will mount on this)
