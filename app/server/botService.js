@@ -284,11 +284,32 @@ export class BotService {
         const lowerMsg = userMessage.toLowerCase();
         const isDirty = /\b(horny|sex|nude|nudes|dick|boob|tit|pussy|cock|cum|f[u\*]ck|suck|slut|naked|send pic|show me)\b/i.test(lowerMsg);
 
-        // If disgusted persona gets dirty talk, disconnect immediately
-        if (isDirty && bot.persona.dirtyTalkReaction === 'disgusted') {
+        // If dirty talk is detected, set a 70% chance to skip/disconnect
+        if (isDirty) {
+            if (Math.random() < 0.70) {
+                bot.shouldDisconnect = true;
+            }
+
+            // Disgusted persona returns a disgust message immediately
+            if (bot.persona.dirtyTalkReaction === 'disgusted') {
+                const disgustResponses = ['eww no bye 🤮', 'thats disgusting bye', 'wtf bye creep', 'nope im out', 'eww blocked', 'bye weirdo 🤢'];
+                return disgustResponses[Math.floor(Math.random() * disgustResponses.length)];
+            }
+        }
+
+        // Random skip: 15% chance to skip on any message after the first few messages (simulates user skipping/getting bored)
+        if (bot.messageCount > 2 && Math.random() < 0.15) {
             bot.shouldDisconnect = true;
-            const disgustResponses = ['eww no bye 🤮', 'thats disgusting bye', 'wtf bye creep', 'nope im out', 'eww blocked', 'bye weirdo 🤢'];
-            return disgustResponses[Math.floor(Math.random() * disgustResponses.length)];
+            const randomSkips = [
+                'gonna go, bye',
+                'bye',
+                'im leaving',
+                'gtg',
+                'dry convo bye',
+                'skip lol',
+                null
+            ];
+            return randomSkips[Math.floor(Math.random() * randomSkips.length)];
         }
 
         // Check if bot should disconnect (random chance increases as convo goes on)
