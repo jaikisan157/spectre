@@ -185,7 +185,7 @@ export function HeroSection({
               >
                 <div className="headline-line text-text-primary">TALK</div>
                 <div className="headline-line text-text-primary">TO</div>
-                <div className="headline-line text-text-primary">STRANGERS</div>
+                <div className="headline-line text-neon-cyan neon-text">STRANGERS</div>
               </h1>
             </div>
 
@@ -200,7 +200,7 @@ export function HeroSection({
             <button
               ref={ctaRef}
               onClick={() => onStartChat(selectedInterests, gender, preferredGender)}
-              className="w-full md:w-auto bg-text-primary text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 hover:bg-text-secondary transition-all"
+              className="btn-neon w-full md:w-auto bg-neon-cyan text-black font-heading font-semibold text-base px-8 py-3.5 rounded-lg mb-2 neon-glow hover:shadow-neon-strong transition-all"
             >
               {selectedInterests.length > 0 ? `Start Chat (${selectedInterests.length})` : 'Start Chat'}
             </button>

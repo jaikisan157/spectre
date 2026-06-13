@@ -322,7 +322,7 @@ export function ChatSection({
           <GhostIcon size={26} className="text-text-primary animate-pulse" />
           <button
             onClick={onGoHome}
-            className="font-heading font-semibold text-base md:text-lg text-text-primary hover:text-text-secondary transition-colors"
+            className="font-heading font-semibold text-base md:text-lg text-text-primary hover:text-neon-cyan transition-colors"
           >
             Spectre
           </button>
@@ -357,7 +357,7 @@ export function ChatSection({
             disabled={newChatCooldown > 0}
             className={`flex items-center gap-1 md:gap-2 transition-colors ${newChatCooldown > 0
               ? 'text-text-secondary/40 cursor-not-allowed'
-              : 'text-text-primary hover:text-text-secondary'
+              : 'text-neon-cyan hover:text-neon-cyan/80'
               }`}
           >
             <MessageCircle className="w-4 h-4" />
@@ -557,7 +557,7 @@ export function ChatSection({
               <button
                 onClick={handleSend}
                 disabled={chatState.status !== 'matched' || !inputText.trim()}
-                className="w-10 h-10 md:w-12 md:h-12 bg-text-primary text-black rounded-md flex items-center justify-center hover:bg-text-secondary disabled:opacity-50 disabled:cursor-not-allowed shrink-0 transition-all"
+                className="w-10 h-10 md:w-12 md:h-12 bg-neon-cyan text-black rounded-md flex items-center justify-center btn-neon disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none shrink-0"
               >
                 <Send className="w-4 h-4 md:w-5 md:h-5" />
               </button>
@@ -586,7 +586,7 @@ export function ChatSection({
               </button>
               <button
                 onClick={confirmLeave}
-                className="flex-1 py-2.5 rounded-md bg-text-primary text-black font-mono text-sm font-semibold hover:bg-text-secondary transition-all"
+                className="flex-1 py-2.5 rounded-md bg-neon-cyan text-black font-mono text-sm font-semibold hover:opacity-90 transition-opacity"
               >
                 Leave
               </button>

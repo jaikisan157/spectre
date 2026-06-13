@@ -84,19 +84,19 @@
 
 /* Neon Glow Effects */
 .neon-glow {
-  box-shadow: none;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
 }
 
 .neon-glow-strong {
-  box-shadow: none;
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.5), 0 0 48px rgba(0, 240, 255, 0.25);
 }
 
 .neon-text {
-  text-shadow: none;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3);
 }
 
 .neon-text-green {
-  text-shadow: none;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5), 0 0 20px rgba(0, 255, 136, 0.3);
 }
 
 /* Light mode: disable glow effects */
@@ -199,13 +199,13 @@
 
 /* Message Bubble Styles */
 .message-bubble-user {
-  background: var(--text-primary);
-  color: var(--dark-bg);
+  background: var(--neon-cyan);
+  color: #000000;
   border-radius: 10px 10px 2px 10px;
 }
 
 .light .message-bubble-user {
-  color: var(--dark-bg);
+  color: #FFFFFF;
 }
 
 .message-bubble-stranger {
