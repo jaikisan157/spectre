@@ -52,6 +52,7 @@ const activePairs = new Map();    // userId -> partnerId
 const userSockets = new Map();    // userId -> ws
 const lastActivity = new Map();   // userId -> timestamp
 const browserSockets = new Map(); // browserId -> userId
+const botDebounce = new Map();    // userId -> { texts: string[], timer, typingTimer }
 
 // ── Security Constants ──
 const MAX_CONNECTIONS = 10000;
@@ -275,6 +276,14 @@ function disconnectUser(userId) {
   userSockets.delete(userId);
   lastActivity.delete(userId);
   userAuthMap.delete(userId);
+
+  // Clean up any pending bot debounce timers
+  const pending = botDebounce.get(userId);
+  if (pending) {
+    if (pending.timer) clearTimeout(pending.timer);
+    if (pending.typingTimer) clearTimeout(pending.typingTimer);
+    botDebounce.delete(userId);
+  }
 }
 
 let currentFakeOnlineCount = (() => {
@@ -450,52 +459,72 @@ wss.on('connection', (ws, req) => {
 
             ws.send(JSON.stringify({ type: 'message_sent', text, messageId: msgId, timestamp: ts }));
 
-            // Bot response handling
+            // Bot response handling — debounced so rapid messages get combined
             if (botService && botService.isBot(partnerId)) {
-              const readDelay = 300 + Math.random() * 700;
-              setTimeout(() => {
+              const pending = botDebounce.get(userId) || { texts: [], timer: null, typingTimer: null };
+
+              // Accumulate message
+              pending.texts.push(text);
+
+              // Clear previous debounce timer
+              if (pending.timer) clearTimeout(pending.timer);
+              if (pending.typingTimer) clearTimeout(pending.typingTimer);
+
+              // Show typing indicator after a short "read" delay
+              pending.typingTimer = setTimeout(() => {
                 if (!activePairs.has(userId) || ws.readyState !== 1) return;
                 ws.send(JSON.stringify({ type: 'typing', isTyping: true }));
-              }, readDelay);
+              }, 300 + Math.random() * 500);
 
-              botService.getResponse(partnerId, text).then(botReply => {
-                if (!activePairs.has(userId)) return;
+              // Wait 2.5s of silence before responding
+              pending.timer = setTimeout(() => {
+                botDebounce.delete(userId);
+                if (!activePairs.has(userId) || ws.readyState !== 1) return;
 
-                if (botService.shouldDisconnect(partnerId)) {
-                  const dcDelay = botReply ? botService.getTypingDelay(botReply) : 1000;
+                // Combine all accumulated messages into one
+                const combinedText = pending.texts.join('\n');
+
+                botService.getResponse(partnerId, combinedText).then(botReply => {
+                  if (!activePairs.has(userId)) return;
+
+                  if (botService.shouldDisconnect(partnerId)) {
+                    const dcDelay = botReply ? botService.getTypingDelay(botReply) : 1000;
+                    setTimeout(() => {
+                      if (!activePairs.has(userId) || ws.readyState !== 1) return;
+                      ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
+                      if (botReply) {
+                        ws.send(JSON.stringify({
+                          type: 'message', from: 'stranger', text: botReply,
+                          messageId: 'msg-' + Date.now() + '-bot', timestamp: Date.now()
+                        }));
+                      }
+                      setTimeout(() => {
+                        if (!activePairs.has(userId) || ws.readyState !== 1) return;
+                        ws.send(JSON.stringify({ type: 'partner_disconnected', message: 'Stranger has disconnected.' }));
+                        botService.removeBot(partnerId);
+                        activePairs.delete(partnerId);
+                        activePairs.delete(userId);
+                        userSockets.delete(partnerId);
+                      }, 1000 + Math.random() * 2000);
+                    }, dcDelay);
+                    return;
+                  }
+
+                  if (!botReply) return;
+                  const delay = botService.getTypingDelay(botReply);
                   setTimeout(() => {
                     if (!activePairs.has(userId) || ws.readyState !== 1) return;
                     ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
-                    if (botReply) {
-                      ws.send(JSON.stringify({
-                        type: 'message', from: 'stranger', text: botReply,
-                        messageId: 'msg-' + Date.now() + '-bot', timestamp: Date.now()
-                      }));
-                    }
-                    setTimeout(() => {
-                      if (!activePairs.has(userId) || ws.readyState !== 1) return;
-                      ws.send(JSON.stringify({ type: 'partner_disconnected', message: 'Stranger has disconnected.' }));
-                      botService.removeBot(partnerId);
-                      activePairs.delete(partnerId);
-                      activePairs.delete(userId);
-                      userSockets.delete(partnerId);
-                    }, 1000 + Math.random() * 2000);
-                  }, dcDelay);
-                  return;
-                }
+                    ws.send(JSON.stringify({
+                      type: 'message', from: 'stranger', text: botReply,
+                      messageId: 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8),
+                      timestamp: Date.now()
+                    }));
+                  }, delay);
+                });
+              }, 2500);
 
-                if (!botReply) return;
-                const delay = botService.getTypingDelay(botReply);
-                setTimeout(() => {
-                  if (!activePairs.has(userId) || ws.readyState !== 1) return;
-                  ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
-                  ws.send(JSON.stringify({
-                    type: 'message', from: 'stranger', text: botReply,
-                    messageId: 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8),
-                    timestamp: Date.now()
-                  }));
-                }, delay);
-              });
+              botDebounce.set(userId, pending);
             }
           }
           break;
