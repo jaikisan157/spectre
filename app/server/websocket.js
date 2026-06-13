@@ -110,8 +110,11 @@ function handleReport(reporterUserId, targetUserId, reason, description) {
   // Can't report yourself
   if (reporterUserId === targetUserId) return { success: false, error: 'Cannot report yourself' };
 
-  // Can't report bots
-  if (botService && botService.isBot(targetUserId)) return { success: false, error: 'Cannot report this user' };
+  // Silently succeed for bots
+  if (botService && botService.isBot(targetUserId)) {
+    console.log(`🚩 Report: ${reporterUserId} reported bot ${targetUserId} — silently accepted`);
+    return { success: true, banned: false };
+  }
 
   // Rate limit: max 3 reports per reporter per 10 minutes
   const now = Date.now();
@@ -626,13 +629,59 @@ wss.on('connection', (ws, req) => {
         }
 
         // ── Game Messages ── (whitelist fields)
-        case 'game_invite':
+        case 'game_invite': {
+          const gamePartnerId = activePairs.get(userId);
+          if (gamePartnerId) {
+            const gameName = typeof message.game === 'string' ? message.game.substring(0, 30) : '';
+            if (botService && botService.isBot(gamePartnerId)) {
+              // Bot handles game invite by declining and commenting via chat
+              const declineMsgText = botService.getGameDeclineMessage(gamePartnerId, gameName);
+              
+              // 1. Short delay (600 - 1000ms) before showing typing indicator
+              setTimeout(() => {
+                if (activePairs.get(userId) !== gamePartnerId || ws.readyState !== 1) return;
+                ws.send(JSON.stringify({ type: 'typing', isTyping: true }));
+              }, 600 + Math.random() * 400);
+
+              // 2. Typing delay (1800 - 2800ms) before sending decline and chat message
+              setTimeout(() => {
+                if (activePairs.get(userId) !== gamePartnerId || ws.readyState !== 1) return;
+                ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
+                
+                // Decline the invite
+                ws.send(JSON.stringify({ type: 'game_decline', game: gameName }));
+                
+                // Send the chat message explaining why
+                const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+                ws.send(JSON.stringify({
+                  type: 'message',
+                  from: 'stranger',
+                  text: declineMsgText,
+                  messageId: msgId,
+                  timestamp: Date.now()
+                }));
+
+                // Add the decline/chat event to the bot's conversation history
+                botService.addGameDeclineToHistory(gamePartnerId, gameName, declineMsgText);
+
+              }, 2000 + Math.random() * 1000);
+            } else {
+              // Regular user invite forwarding
+              const gWs = userSockets.get(gamePartnerId);
+              if (gWs && gWs.readyState === 1) {
+                gWs.send(JSON.stringify({ type: message.type, game: gameName, data: message.data }));
+              }
+            }
+          }
+          break;
+        }
+
         case 'game_accept':
         case 'game_decline':
         case 'game_move':
         case 'game_leave': {
           const gamePartnerId = activePairs.get(userId);
-          if (gamePartnerId) {
+          if (gamePartnerId && !(botService && botService.isBot(gamePartnerId))) {
             const gameName = typeof message.game === 'string' ? message.game.substring(0, 30) : '';
             const gWs = userSockets.get(gamePartnerId);
             if (gWs && gWs.readyState === 1) {

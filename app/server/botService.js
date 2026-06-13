@@ -339,6 +339,94 @@ export class BotService {
 
     isBot(userId) { return this.activeBots.has(userId); }
     getActiveBotCount() { return this.activeBots.size; }
+
+    getGameDeclineMessage(botUserId, gameName) {
+        const bot = this.activeBots.get(botUserId);
+        if (!bot) return "nah im good";
+        const vibe = bot.persona.vibe || '';
+        const lowerGame = (gameName || '').toLowerCase();
+
+        // Game specific responses
+        let responses = [];
+        if (lowerGame.includes('tictactoe')) {
+            responses = [
+                "nah i suck at tic tac toe lol",
+                "tic tac toe is too simple, let's just chat",
+                "nah no ttt right now haha",
+                "nah tictactoe always ends in a draw anyway"
+            ];
+        } else if (lowerGame.includes('connect4')) {
+            responses = [
+                "connect 4 takes too long lol, nah",
+                "nah i always lose at connect four",
+                "lol connect 4 is hard, im good",
+                "nah not in the mood for connect 4 rn"
+            ];
+        } else if (lowerGame.includes('rps')) {
+            responses = [
+                "rock paper scissors is purely luck lol, nah",
+                "nah im good, rps is boring",
+                "lol nah let's just talk",
+                "rps is mid, nah"
+            ];
+        } else if (lowerGame.includes('truthdare')) {
+            responses = [
+                "nah truth or dare is too intense lol",
+                "lol no way, i don't do truth or dare with strangers",
+                "nah i don't want to get roasted in truth or dare haha",
+                "truth or dare is sketchy lol let's just chat"
+            ];
+        } else if (lowerGame.includes('wyr')) {
+            responses = [
+                "would you rather is a bit much rn, nah",
+                "nah too lazy to think of answers lol",
+                "lol nah, let's just talk normally",
+                "nah not really interested in would you rather"
+            ];
+        }
+
+        // Generic / Fallback responses
+        const genericResponses = [
+            "nah im good",
+            "lol nah let's just talk",
+            "nah not really in the mood for games right now",
+            "nah maybe later",
+            "lol nah i'm too lazy for that",
+            "nah let's just chat",
+            "nah i'm on my phone, hard to play games here"
+        ];
+
+        // Combine based on vibe
+        if (vibe.includes('gamer') || vibe.includes('toxic')) {
+            genericResponses.push(
+                "nah that game is mid",
+                "lol nah im good",
+                "nah im too lazy to play rn"
+            );
+        }
+
+        const finalChoices = responses.length > 0 ? responses : genericResponses;
+        return finalChoices[Math.floor(Math.random() * finalChoices.length)];
+    }
+
+    addGameDeclineToHistory(botUserId, gameName, declineText) {
+        const bot = this.activeBots.get(botUserId);
+        if (!bot) return;
+
+        const gameLabel = gameName === 'tictactoe' ? 'Tic-Tac-Toe' :
+                          gameName === 'connect4' ? 'Connect Four' :
+                          gameName === 'rps' ? 'Rock Paper Scissors' :
+                          gameName === 'truthdare' ? 'Truth or Dare' :
+                          gameName === 'wyr' ? 'Would You Rather' : gameName;
+
+        bot.messages.push({ role: 'user', content: `[User invited you to play ${gameLabel}]` });
+        bot.messages.push({ role: 'assistant', content: declineText });
+
+        // Keep context window manageable
+        if (bot.messages.length > 22) {
+            bot.messages = [bot.messages[0], ...bot.messages.slice(-20)];
+        }
+    }
 }
 
 function getFallbackResponse(bot, userMessage) {
